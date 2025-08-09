@@ -1,0 +1,83 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useFieldStore } from '@/store/fieldStore';
+import { JsonExportTab } from './JsonExportTab';
+import { JavaScriptExportTab } from './JavaScriptExportTab';
+import { PdfExportTab } from './PdfExportTab';
+import { CodeViewer } from '@/components/common/CodeViewer';
+import { FileJson, Code2, FileDown } from 'lucide-react';
+
+interface ExportModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+type ExportFormat = 'json' | 'javascript' | 'html' | 'pdf';
+
+export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
+  const [activeFormat, setActiveFormat] = useState<ExportFormat>('json');
+  const { fields, logicFields, pdfFile, pdfUrl } = useFieldStore();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle>Export Configuration</DialogTitle>
+          <DialogDescription>
+            Export your field configuration or download a filled PDF
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={activeFormat} onValueChange={(v) => setActiveFormat(v as ExportFormat)}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="json" className="flex items-center gap-2">
+              <FileJson className="h-4 w-4" />
+              JSON
+            </TabsTrigger>
+            <TabsTrigger value="javascript" className="flex items-center gap-2">
+              <Code2 className="h-4 w-4" />
+              JavaScript
+            </TabsTrigger>
+            <TabsTrigger value="html" className="flex items-center gap-2">
+              <FileJson className="h-4 w-4" />
+              HTML
+            </TabsTrigger>
+            <TabsTrigger value="pdf" className="flex items-center gap-2">
+              <FileDown className="h-4 w-4" />
+              Filled PDF
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="json" className="space-y-4">
+            <JsonExportTab 
+              fields={fields}
+              logicFields={logicFields}
+              pdfFileName={pdfFile?.name}
+            />
+          </TabsContent>
+
+          <TabsContent value="javascript" className="space-y-4">
+            <JavaScriptExportTab fields={fields} />
+          </TabsContent>
+
+          <TabsContent value="html" className="space-y-4">
+            <CodeViewer
+              code="<!-- HTML export not yet implemented -->"
+              language="html"
+              description="HTML form (not yet implemented)"
+            />
+          </TabsContent>
+
+          <TabsContent value="pdf" className="space-y-4">
+            <PdfExportTab 
+              fields={fields}
+              pdfUrl={pdfUrl}
+              pdfFileName={pdfFile?.name}
+            />
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
