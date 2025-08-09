@@ -3,14 +3,16 @@ import { Button } from '@/components/ui/button';
 import { FileDown, Download } from 'lucide-react';
 import { exportFilledPDF, downloadPDF } from '@/exporters/pdfExporter';
 import type { Field } from '@/types/field.types';
+import type { LogicField } from '@/types/logicField.types';
 
 interface PdfExportTabProps {
   fields: Field[];
+  logicFields?: LogicField[];
   pdfUrl: string | null;
   pdfFileName?: string;
 }
 
-export function PdfExportTab({ fields, pdfUrl, pdfFileName }: PdfExportTabProps) {
+export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName }: PdfExportTabProps) {
   const [exporting, setExporting] = useState(false);
 
   const handleExportPDF = async () => {
@@ -25,8 +27,17 @@ export function PdfExportTab({ fields, pdfUrl, pdfFileName }: PdfExportTabProps)
       const response = await fetch(pdfUrl);
       const pdfBytes = await response.arrayBuffer();
       
-      // Export filled PDF
-      const filledPdfBytes = await exportFilledPDF(pdfBytes, fields);
+      // Export filled PDF with logic fields support
+      const filledPdfBytes = await exportFilledPDF(pdfBytes, {
+        fields,
+        logicFields,
+        fieldValues: fields.reduce((acc, field) => {
+          if (field.sampleValue !== undefined) {
+            acc[field.key] = field.sampleValue;
+          }
+          return acc;
+        }, {} as Record<string, any>)
+      });
       
       // Download the filled PDF
       const filename = pdfFileName ? `filled-${pdfFileName}` : 'filled-form.pdf';

@@ -15,16 +15,18 @@ export function JsonExportTab({ fields, logicFields, pdfFileName }: JsonExportTa
     : exportToJSON(fields, pdfFileName, logicFields);
 
   const handleDownload = () => {
-    downloadJSON(fields, pdfFileName);
+    downloadJSON(fields, pdfFileName, logicFields);
   };
 
   return (
     <CodeViewer
       code={code}
       language="json"
+      title="JSON Configuration"
+      description={`Field configuration (${fields.length} fields, ${logicFields.length} logic fields)`}
       onDownload={handleDownload}
       showDownload={true}
-      description="Field configuration in JSON format"
+      buttonPosition="top"
     />
   );
 }

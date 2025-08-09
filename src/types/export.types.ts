@@ -20,7 +20,15 @@ export interface ExportConfig {
     description?: string;
     author?: string;
     tags?: string[];
+    exportDate?: string;
+    statistics?: {
+      total: number;
+      byType: Record<string, number>;
+      byPage: Record<number, number>;
+      required: number;
+    };
   };
+  $schema?: string;
 }
 
 export type ExportFormat = 

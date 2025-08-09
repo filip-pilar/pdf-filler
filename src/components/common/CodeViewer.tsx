@@ -10,6 +10,8 @@ interface CodeViewerProps {
   onDownload?: () => void;
   showDownload?: boolean;
   description?: string;
+  title?: string;
+  buttonPosition?: 'top' | 'bottom';
 }
 
 export function CodeViewer({ 
@@ -18,7 +20,9 @@ export function CodeViewer({
   onCopy, 
   onDownload, 
   showDownload = false,
-  description 
+  description,
+  title,
+  buttonPosition = 'top'
 }: CodeViewerProps) {
   const [copied, setCopied] = useState(false);
 
@@ -29,8 +33,55 @@ export function CodeViewer({
     onCopy?.();
   };
 
+  const buttons = (
+    <div className="flex items-center justify-between">
+      <div>
+        {title && (
+          <h3 className="text-sm font-medium">{title}</h3>
+        )}
+        {description && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopy}
+          className="gap-2"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy Code
+            </>
+          )}
+        </Button>
+        {showDownload && onDownload && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDownload}
+            className="gap-2"
+          >
+            <Download className="h-3 w-3" />
+            Download
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
+      {buttonPosition === 'top' && buttons}
       <div className="border rounded-lg overflow-hidden">
         <Editor
           height="400px"
@@ -46,34 +97,7 @@ export function CodeViewer({
           }}
         />
       </div>
-      <div className="flex justify-between">
-        {description && (
-          <p className="text-sm text-muted-foreground">
-            {description}
-          </p>
-        )}
-        <div className="flex gap-2 ml-auto">
-          <Button variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                Copy
-              </>
-            )}
-          </Button>
-          {showDownload && onDownload && (
-            <Button size="sm" onClick={onDownload}>
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
-          )}
-        </div>
-      </div>
+      {buttonPosition === 'bottom' && buttons}
     </div>
   );
 }

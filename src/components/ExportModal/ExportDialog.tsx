@@ -5,15 +5,15 @@ import { useFieldStore } from '@/store/fieldStore';
 import { JsonExportTab } from './JsonExportTab';
 import { JavaScriptExportTab } from './JavaScriptExportTab';
 import { PdfExportTab } from './PdfExportTab';
-import { CodeViewer } from '@/components/common/CodeViewer';
-import { FileJson, Code2, FileDown } from 'lucide-react';
+import { NextJsApiExportTab } from './NextJsApiExportTab';
+import { FileJson, Code2, FileDown, Braces } from 'lucide-react';
 
 interface ExportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type ExportFormat = 'json' | 'javascript' | 'html' | 'pdf';
+type ExportFormat = 'json' | 'javascript' | 'nextjs' | 'pdf';
 
 export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
   const [activeFormat, setActiveFormat] = useState<ExportFormat>('json');
@@ -39,9 +39,9 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
               <Code2 className="h-4 w-4" />
               JavaScript
             </TabsTrigger>
-            <TabsTrigger value="html" className="flex items-center gap-2">
-              <FileJson className="h-4 w-4" />
-              HTML
+            <TabsTrigger value="nextjs" className="flex items-center gap-2">
+              <Braces className="h-4 w-4" />
+              API Route
             </TabsTrigger>
             <TabsTrigger value="pdf" className="flex items-center gap-2">
               <FileDown className="h-4 w-4" />
@@ -58,20 +58,21 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
           </TabsContent>
 
           <TabsContent value="javascript" className="space-y-4">
-            <JavaScriptExportTab fields={fields} />
+            <JavaScriptExportTab fields={fields} logicFields={logicFields} />
           </TabsContent>
 
-          <TabsContent value="html" className="space-y-4">
-            <CodeViewer
-              code="<!-- HTML export not yet implemented -->"
-              language="html"
-              description="HTML form (not yet implemented)"
+          <TabsContent value="nextjs" className="space-y-4">
+            <NextJsApiExportTab 
+              fields={fields}
+              logicFields={logicFields}
+              pdfFileName={pdfFile?.name}
             />
           </TabsContent>
 
           <TabsContent value="pdf" className="space-y-4">
             <PdfExportTab 
               fields={fields}
+              logicFields={logicFields}
               pdfUrl={pdfUrl}
               pdfFileName={pdfFile?.name}
             />
