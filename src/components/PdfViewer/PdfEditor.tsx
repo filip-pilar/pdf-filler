@@ -8,6 +8,7 @@ import { PdfNavigationBar } from './PdfNavigationBar';
 import { PdfCanvas } from './PdfCanvas';
 import { GridOverlay } from './GridOverlay';
 import { FieldOverlay } from './FieldOverlay';
+import { UnifiedFieldOverlay } from './UnifiedFieldOverlay';
 import { DragPreview } from './DragPreview';
 import { FieldPropertiesDialog } from '@/components/FieldPropertiesDialog/FieldPropertiesDialog';
 import { LogicFieldDialog } from '@/components/LogicFieldDialog/LogicFieldDialog';
@@ -72,7 +73,9 @@ export function PdfEditor() {
     gridSize, 
     gridEnabled,
     setCurrentPage: setStoreCurrentPage,
-    setTotalPages
+    setTotalPages,
+    useUnifiedFields,
+    unifiedFields
   } = useFieldStore();
   const { snapPosition } = useGridSnap();
   const { isPickingPosition, pickingActionType, pickingContent, confirmPosition } = usePositionPickerStore();
@@ -218,16 +221,27 @@ export function PdfEditor() {
                 gridSize={gridSize}
               />
               
-              <FieldOverlay
-                fields={fields}
-                actions={currentPageActions}
-                booleanActions={currentPageBooleanActions}
-                selectedFieldKey={selectedFieldKey}
-                currentPage={currentPage}
-                scale={scale}
-                pageWidth={pageSize.width}
-                pageHeight={pageSize.height}
-              />
+              {useUnifiedFields ? (
+                <UnifiedFieldOverlay
+                  fields={unifiedFields}
+                  selectedFieldId={selectedFieldKey}
+                  currentPage={currentPage}
+                  scale={scale}
+                  pageWidth={pageSize.width}
+                  pageHeight={pageSize.height}
+                />
+              ) : (
+                <FieldOverlay
+                  fields={fields}
+                  actions={currentPageActions}
+                  booleanActions={currentPageBooleanActions}
+                  selectedFieldKey={selectedFieldKey}
+                  currentPage={currentPage}
+                  scale={scale}
+                  pageWidth={pageSize.width}
+                  pageHeight={pageSize.height}
+                />
+              )}
 
               {dragPreview && isOver && (
                 <DragPreview

@@ -1,6 +1,7 @@
 import type { Field } from '@/types/field.types';
 import type { ExportConfig } from '@/types/export.types';
 import type { LogicField, LogicFieldExport } from '@/types/logicField.types';
+import type { UnifiedField, UnifiedFieldExport } from '@/types/unifiedField.types';
 
 interface ExportOptions {
   includeMetadata?: boolean;
@@ -12,7 +13,8 @@ export function exportToJSON(
   fields: Field[], 
   pdfName?: string, 
   logicFields?: LogicField[],
-  options: ExportOptions = {}
+  options: ExportOptions = {},
+  unifiedFields?: UnifiedField[]
 ): string {
   const { 
     includeMetadata = true, 
@@ -51,6 +53,54 @@ export function exportToJSON(
     required: fields.filter(f => f.properties.required).length,
   };
 
+  // If we have unified fields, use those instead
+  if (unifiedFields && unifiedFields.length > 0) {
+    const unifiedExport: UnifiedFieldExport[] = unifiedFields
+      .filter(f => f.enabled)
+      .map(field => ({
+        key: field.key,
+        type: field.type,
+        variant: field.variant,
+        page: field.page,
+        position: field.position,
+        size: field.size,
+        placementCount: field.placementCount,
+        options: field.options
+      }));
+    
+    const config = {
+      version: '2.0.0', // New version for unified fields
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      pdfInfo: {
+        name: pdfName || 'document.pdf',
+        pages: Math.max(...unifiedFields.map(f => f.page), 1),
+      },
+      unifiedFields: unifiedExport,
+      metadata: includeMetadata ? {
+        description: 'PDF field configuration (unified) exported from PDF Filler',
+        author: 'PDF Filler',
+        tags: ['pdf', 'form', 'fields', 'unified'],
+        exportDate: new Date().toISOString(),
+        statistics: {
+          total: unifiedExport.length,
+          byType: unifiedExport.reduce((acc, field) => {
+            acc[field.type] = (acc[field.type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          byPage: unifiedExport.reduce((acc, field) => {
+            acc[field.page] = (acc[field.page] || 0) + 1;
+            return acc;
+          }, {} as Record<number, number>),
+        },
+      } : undefined,
+      $schema: includeSchema ? 'https://pdf-filler.app/schemas/unified-export-config.json' : undefined
+    };
+    
+    return JSON.stringify(config, null, minify ? 0 : 2);
+  }
+  
+  // Legacy export for old field system
   const config: ExportConfig = {
     version: '1.0.0',
     createdAt: new Date().toISOString(),
@@ -164,9 +214,10 @@ export function validateJSON(jsonString: string): {
 export function downloadJSON(
   fields: Field[], 
   pdfName?: string, 
-  logicFields?: LogicField[]
+  logicFields?: LogicField[],
+  unifiedFields?: UnifiedField[]
 ): void {
-  const json = exportToJSON(fields, pdfName, logicFields);
+  const json = exportToJSON(fields, pdfName, logicFields, {}, unifiedFields);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

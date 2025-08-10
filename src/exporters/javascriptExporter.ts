@@ -1,5 +1,6 @@
 import type { Field } from '@/types/field.types';
 import type { LogicField } from '@/types/logicField.types';
+import type { UnifiedField } from '@/types/unifiedField.types';
 
 interface ExportOptions {
   framework?: 'hono' | 'express' | 'vanilla';
@@ -11,7 +12,8 @@ interface ExportOptions {
 export function generateJavaScriptCode(
   fields: Field[], 
   logicFields: LogicField[] = [],
-  options: ExportOptions = {}
+  options: ExportOptions = {},
+  unifiedFields?: UnifiedField[]
 ): string {
   const {
     framework = 'hono',
@@ -20,6 +22,17 @@ export function generateJavaScriptCode(
     moduleType = 'esm'
   } = options;
   
+  // Use unified fields if available
+  if (unifiedFields && unifiedFields.length > 0) {
+    if (framework === 'express') {
+      return generateUnifiedExpressCode(unifiedFields, { includeValidation, includeJsDoc, moduleType });
+    } else if (framework === 'vanilla') {
+      return generateUnifiedVanillaCode(unifiedFields, { includeValidation, includeJsDoc, moduleType });
+    }
+    return generateUnifiedHonoCode(unifiedFields, { includeValidation, includeJsDoc });
+  }
+  
+  // Legacy field system
   if (framework === 'express') {
     return generateExpressCode(fields, logicFields, { includeValidation, includeJsDoc, moduleType });
   } else if (framework === 'vanilla') {
@@ -641,4 +654,200 @@ ${moduleType === 'commonjs' ? 'module.exports = fieldConfiguration;' : ''}
  *   // Send data to PDF filling service
  * };
  */`;
+}
+
+// Unified field generators
+function generateUnifiedHonoCode(
+  fields: UnifiedField[],
+  options: { includeValidation: boolean; includeJsDoc: boolean }
+): string {
+  const { includeValidation, includeJsDoc } = options;
+  const fieldsJson = JSON.stringify(
+    fields.filter(f => f.enabled).map(f => ({
+      key: f.key,
+      type: f.type,
+      variant: f.variant,
+      page: f.page,
+      position: f.position,
+      size: f.size,
+      placementCount: f.placementCount,
+      options: f.options
+    })), 
+    null, 
+    2
+  );
+  
+  return `${includeJsDoc ? `/**
+ * PDF Form Filling Service (Unified Fields)
+ * 
+ * This service provides endpoints for filling PDF forms with unified field data.
+ * Compatible with Cloudflare Workers, Deno Deploy, Bun, and Node.js.
+ * 
+ * @module pdf-form-service-unified
+ */
+` : ''}
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+
+const app = new Hono();
+
+// Enable CORS
+app.use('*', cors());
+
+// Unified field configuration
+const unifiedFields = ${fieldsJson};
+
+${includeValidation ? `
+/**
+ * Validates field data
+ * @param {Object} data - Field data to validate
+ * @returns {Array} Array of validation errors
+ */
+function validateFieldData(data) {
+  const errors = [];
+  
+  for (const field of unifiedFields) {
+    // Check for array fields
+    if (field.variant !== 'single' && field.options) {
+      if (!data[field.key] || !Array.isArray(data[field.key])) {
+        errors.push({
+          field: field.key,
+          message: \`Field "\${field.key}" must be an array\`
+        });
+      }
+    }
+  }
+  
+  return errors;
+}` : ''}
+
+/**
+ * Fills a PDF with unified field data
+ * @param {Uint8Array} pdfBytes - PDF file bytes
+ * @param {Object} data - Field data
+ * @returns {Promise<Uint8Array>} Filled PDF bytes
+ */
+async function fillPDF(pdfBytes, data) {
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  
+  for (const field of unifiedFields) {
+    const page = pdfDoc.getPages()[field.page - 1];
+    if (!page) continue;
+    
+    const value = data[field.key];
+    if (value === undefined || value === null) continue;
+    
+    // Handle different field types and variants
+    if (field.type === 'text') {
+      if (field.variant === 'text-list' && Array.isArray(value)) {
+        // Combine array values into single text
+        const text = value.join(', ');
+        page.drawText(text, {
+          x: field.position.x,
+          y: page.getHeight() - field.position.y - (field.size?.height || 30),
+          size: 12,
+          font,
+          color: rgb(0, 0, 0)
+        });
+      } else if (field.variant === 'text-multi' && Array.isArray(value)) {
+        // Multiple placements for array values
+        value.forEach((item, idx) => {
+          if (idx < field.placementCount) {
+            page.drawText(String(item), {
+              x: field.position.x + (idx * 20),
+              y: page.getHeight() - field.position.y - (field.size?.height || 30) - (idx * 20),
+              size: 12,
+              font,
+              color: rgb(0, 0, 0)
+            });
+          }
+        });
+      } else {
+        // Single text field
+        page.drawText(String(value), {
+          x: field.position.x,
+          y: page.getHeight() - field.position.y - (field.size?.height || 30),
+          size: 12,
+          font,
+          color: rgb(0, 0, 0)
+        });
+      }
+    } else if (field.type === 'checkbox') {
+      if (value === true || value === 'true') {
+        page.drawText('✓', {
+          x: field.position.x,
+          y: page.getHeight() - field.position.y - (field.size?.height || 25),
+          size: 14,
+          font,
+          color: rgb(0, 0, 0)
+        });
+      }
+    }
+  }
+  
+  return await pdfDoc.save();
+}
+
+// Health check endpoint
+app.get('/', (c) => c.json({ 
+  status: 'ready', 
+  fields: unifiedFields.length,
+  version: '2.0.0'
+}));
+
+// Fill PDF endpoint
+app.post('/fill', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const pdfFile = formData.get('pdf');
+    const fieldData = formData.get('data');
+    
+    if (!pdfFile || !(pdfFile instanceof File)) {
+      return c.json({ error: 'PDF file is required' }, 400);
+    }
+    
+    const data = fieldData ? JSON.parse(fieldData.toString()) : {};
+    
+    ${includeValidation ? `// Validate field data
+    const errors = validateFieldData(data);
+    if (errors.length > 0) {
+      return c.json({ errors }, 400);
+    }
+    ` : ''}
+    const pdfBytes = new Uint8Array(await pdfFile.arrayBuffer());
+    const filledPdf = await fillPDF(pdfBytes, data);
+    
+    return new Response(filledPdf, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="filled.pdf"'
+      }
+    });
+  } catch (error) {
+    return c.json({ 
+      error: 'Failed to process PDF', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, 500);
+  }
+});
+
+export default app;`;
+}
+
+function generateUnifiedExpressCode(
+  fields: UnifiedField[],
+  options: { includeValidation: boolean; includeJsDoc: boolean; moduleType: 'esm' | 'commonjs' }
+): string {
+  // Similar to Hono but with Express syntax
+  return generateUnifiedHonoCode(fields, options); // Simplified for now
+}
+
+function generateUnifiedVanillaCode(
+  fields: UnifiedField[],
+  options: { includeValidation: boolean; includeJsDoc: boolean; moduleType: 'esm' | 'commonjs' }
+): string {
+  // Similar to Hono but with vanilla JS
+  return generateUnifiedHonoCode(fields, options); // Simplified for now
 }

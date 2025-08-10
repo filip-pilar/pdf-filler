@@ -2,19 +2,26 @@ import { create } from 'zustand';
 import type { Field } from '../types/field.types';
 import type { LogicField, FieldOption, FieldAction } from '../types/logicField.types';
 import type { BooleanField, BooleanFieldAction } from '../types/booleanField.types';
+import type { UnifiedField, FieldMigrationResult } from '../types/unifiedField.types';
 
 export type GridSize = 5 | 10 | 25;
 
 interface FieldState {
-  // Regular fields
+  // Feature flag for unified fields
+  useUnifiedFields: boolean;
+  
+  // Unified fields (new system)
+  unifiedFields: UnifiedField[];
+  
+  // Regular fields (legacy)
   fields: Field[];
   selectedFieldKey: string | null;
   isDragging: boolean;
   
-  // Logic fields
+  // Logic fields (legacy)
   logicFields: LogicField[];
   
-  // Boolean fields
+  // Boolean fields (legacy)
   booleanFields: BooleanField[];
   
   // PDF data
@@ -83,6 +90,24 @@ interface FieldState {
   }>;
   validateAction: (action: FieldAction, targetFieldType?: string) => boolean;
   
+  // Unified field operations
+  setUseUnifiedFields: (use: boolean) => void;
+  addUnifiedField: (field: Partial<UnifiedField>) => UnifiedField;
+  updateUnifiedField: (id: string, updates: Partial<UnifiedField>) => void;
+  deleteUnifiedField: (id: string) => void;
+  setUnifiedFields: (fields: UnifiedField[]) => void;
+  clearUnifiedFields: () => void;
+  duplicateUnifiedField: (id: string) => void;
+  getUnifiedFieldById: (id: string) => UnifiedField | undefined;
+  getUnifiedFieldByKey: (key: string) => UnifiedField | undefined;
+  getUnifiedFieldsForPage: (page: number) => UnifiedField[];
+  
+  // Migration operations
+  convertFieldToUnified: (field: Field) => UnifiedField;
+  convertLogicFieldToUnified: (logicField: LogicField) => UnifiedField[];
+  convertBooleanFieldToUnified: (booleanField: BooleanField) => UnifiedField[];
+  migrateAllToUnified: () => FieldMigrationResult;
+  
   // Clear all
   clearAll: () => void;
   
@@ -91,6 +116,7 @@ interface FieldState {
   setPdfUrl: (url: string) => void;
   clearPdf: () => void;
   setCurrentPage: (page: number) => void;
+  setTotalPages: (pages: number) => void;
   
   // Grid operations
   setGridEnabled: (enabled: boolean) => void;
@@ -117,15 +143,21 @@ const generateFieldKey = (type: string, existingFields: Field[]): string => {
 
 
 export const useFieldStore = create<FieldState>((set, get) => ({
-  // Regular fields
+  // Feature flag
+  useUnifiedFields: true, // Migration enabled!
+  
+  // Unified fields (new system)
+  unifiedFields: [],
+  
+  // Regular fields (legacy)
   fields: [],
   selectedFieldKey: null,
   isDragging: false,
   
-  // Logic fields
+  // Logic fields (legacy)
   logicFields: [],
   
-  // Boolean fields
+  // Boolean fields (legacy)
   booleanFields: [],
   
   // PDF data
@@ -627,6 +659,184 @@ export const useFieldStore = create<FieldState>((set, get) => ({
           : f
       )
     }));
+  },
+  
+  // Unified field operations
+  setUseUnifiedFields: (use) => set({ useUnifiedFields: use }),
+  
+  addUnifiedField: (fieldData) => {
+    const id = `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newField: UnifiedField = {
+      id,
+      key: fieldData.key || `field_${id}`,
+      type: 'text',
+      variant: 'single',
+      page: 1,
+      position: { x: 100, y: 100 },
+      enabled: true,
+      structure: 'simple',
+      placementCount: 1,
+      ...fieldData
+    };
+    set((state) => ({
+      unifiedFields: [...state.unifiedFields, newField]
+    }));
+    return newField;
+  },
+  
+  updateUnifiedField: (id, updates) => {
+    set((state) => ({
+      unifiedFields: state.unifiedFields.map(f => 
+        f.id === id ? { ...f, ...updates } : f
+      )
+    }));
+  },
+  
+  deleteUnifiedField: (id) => {
+    set((state) => ({
+      unifiedFields: state.unifiedFields.filter(f => f.id !== id)
+    }));
+  },
+  
+  setUnifiedFields: (fields) => set({ unifiedFields: fields }),
+  
+  clearUnifiedFields: () => set({ unifiedFields: [] }),
+  
+  duplicateUnifiedField: (id) => {
+    const field = get().unifiedFields.find(f => f.id === id);
+    if (field) {
+      const newField: UnifiedField = {
+        ...field,
+        id: `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        key: `${field.key}_copy`,
+        position: {
+          x: field.position.x + 20,
+          y: field.position.y + 20
+        }
+      };
+      set((state) => ({
+        unifiedFields: [...state.unifiedFields, newField]
+      }));
+    }
+  },
+  
+  getUnifiedFieldById: (id) => get().unifiedFields.find(f => f.id === id),
+  
+  getUnifiedFieldByKey: (key) => get().unifiedFields.find(f => f.key === key),
+  
+  getUnifiedFieldsForPage: (page) => get().unifiedFields.filter(f => f.page === page),
+  
+  // Migration operations
+  convertFieldToUnified: (field) => {
+    return {
+      id: `unified_${field.key}_${Date.now()}`,
+      key: field.key,
+      type: field.type,
+      variant: 'single',
+      page: field.page,
+      position: field.position,
+      size: field.size,
+      enabled: true,
+      structure: 'simple',
+      placementCount: 1,
+      sampleValue: field.sampleValue,
+      source: field.source
+    };
+  },
+  
+  convertLogicFieldToUnified: (logicField) => {
+    // Convert each option to a unified field
+    return logicField.options.map(option => {
+      const firstAction = option.actions[0];
+      return {
+        id: `unified_${logicField.key}_${option.key}_${Date.now()}`,
+        key: `${logicField.key}_${option.key}`,
+        type: 'text' as const,
+        variant: 'single' as const,
+        page: firstAction?.position.page || logicField.page || 1,
+        position: firstAction?.position || { x: 100, y: 100 },
+        size: firstAction?.size,
+        enabled: true,
+        structure: 'simple' as const,
+        placementCount: 1,
+        sampleValue: option.label
+      };
+    });
+  },
+  
+  convertBooleanFieldToUnified: (booleanField) => {
+    const fields: UnifiedField[] = [];
+    
+    // Convert true actions
+    if (booleanField.trueActions.length > 0) {
+      const firstAction = booleanField.trueActions[0];
+      fields.push({
+        id: `unified_${booleanField.key}_true_${Date.now()}`,
+        key: `${booleanField.key}_true`,
+        type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
+        variant: 'single',
+        page: firstAction.position.page,
+        position: firstAction.position,
+        size: firstAction.size,
+        enabled: true,
+        structure: 'simple',
+        placementCount: 1,
+        sampleValue: firstAction.type === 'checkmark' ? true : firstAction.customText
+      });
+    }
+    
+    // Convert false actions
+    if (booleanField.falseActions.length > 0) {
+      const firstAction = booleanField.falseActions[0];
+      fields.push({
+        id: `unified_${booleanField.key}_false_${Date.now() + 1}`,
+        key: `${booleanField.key}_false`,
+        type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
+        variant: 'single',
+        page: firstAction.position.page,
+        position: firstAction.position,
+        size: firstAction.size,
+        enabled: true,
+        structure: 'simple',
+        placementCount: 1,
+        sampleValue: firstAction.type === 'checkmark' ? false : firstAction.customText
+      });
+    }
+    
+    return fields;
+  },
+  
+  migrateAllToUnified: () => {
+    const state = get();
+    const unifiedFields: UnifiedField[] = [];
+    const warnings: string[] = [];
+    
+    // Convert regular fields
+    state.fields.forEach(field => {
+      unifiedFields.push(get().convertFieldToUnified(field));
+    });
+    
+    // Convert logic fields
+    state.logicFields.forEach(logicField => {
+      const converted = get().convertLogicFieldToUnified(logicField);
+      unifiedFields.push(...converted);
+      if (logicField.options.some(o => o.actions.length > 1)) {
+        warnings.push(`Logic field "${logicField.key}" had multiple actions per option. Only first action was migrated.`);
+      }
+    });
+    
+    // Convert boolean fields
+    state.booleanFields.forEach(booleanField => {
+      const converted = get().convertBooleanFieldToUnified(booleanField);
+      unifiedFields.push(...converted);
+      if (booleanField.trueActions.length > 1 || booleanField.falseActions.length > 1) {
+        warnings.push(`Boolean field "${booleanField.key}" had multiple actions. Only first action was migrated.`);
+      }
+    });
+    
+    set({ unifiedFields, useUnifiedFields: true });
+    
+    return { fields: unifiedFields, warnings };
   },
   
   // PDF operations
