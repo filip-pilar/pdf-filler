@@ -99,6 +99,8 @@ export function Toolbar() {
             variant="outline"
             size="sm"
             onClick={handleImportSchema}
+            disabled={!pdfFile}
+            title={!pdfFile ? "Upload a PDF first" : "Import schema from SQL, JSON, or TypeScript"}
           >
             <Database className="h-4 w-4" />
             Import Schema
@@ -108,7 +110,8 @@ export function Toolbar() {
             variant="outline"
             size="sm"
             onClick={handleExport}
-            disabled={fields.length === 0}
+            disabled={!pdfFile || fields.length === 0}
+            title={!pdfFile ? "Upload a PDF first" : fields.length === 0 ? "No fields to export" : "Export configuration"}
           >
             <FileJson className="h-4 w-4" />
             Export

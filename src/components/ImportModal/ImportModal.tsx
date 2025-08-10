@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SqlImporter } from './SqlImporter';
 import { JsonImporter } from './JsonImporter';
 import { TypeScriptImporter } from './TypeScriptImporter';
+import { FieldMappingDialog } from './FieldMappingDialog';
 import { useFieldStore } from '@/store/fieldStore';
 import type { Field } from '@/types/field.types';
 import { Database, FileJson, Code2, Import, AlertCircle } from 'lucide-react';
@@ -19,6 +20,7 @@ interface ImportModalProps {
 export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const [generatedFields, setGeneratedFields] = useState<Partial<Field>[]>([]);
   const [activeTab, setActiveTab] = useState<string>('sql');
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
   const { addField } = useFieldStore();
   const [error, setError] = useState<string>('');
 
@@ -33,29 +35,38 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       return;
     }
 
-    // Add all fields to the store (default to page 1)
-    for (const field of generatedFields) {
+    // Close import modal and show mapping dialog
+    onOpenChange(false);
+    setShowMappingDialog(true);
+  };
+
+  const handleConfirmMapping = (mappedFields: Partial<Field>[]) => {
+    // Add all mapped fields to the store
+    for (const field of mappedFields) {
       addField({
         ...field,
         page: field.page || 1
       } as Omit<Field, 'id'>);
     }
     
-    toast.success(`Successfully imported ${generatedFields.length} fields`);
+    toast.success(`Successfully imported ${mappedFields.length} fields`);
 
     // Reset and close
     setGeneratedFields([]);
     setError('');
+    setShowMappingDialog(false);
     onOpenChange(false);
   };
 
   const handleCancel = () => {
     setGeneratedFields([]);
     setError('');
+    setShowMappingDialog(false);
     onOpenChange(false);
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
@@ -132,10 +143,18 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
             className="flex items-center gap-2"
           >
             <Import className="h-4 w-4" />
-            Import {generatedFields.length > 0 && `${generatedFields.length} Fields`}
+            Configure & Import {generatedFields.length > 0 && `${generatedFields.length} Fields`}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    
+    <FieldMappingDialog
+      open={showMappingDialog}
+      onOpenChange={setShowMappingDialog}
+      fields={generatedFields}
+      onConfirm={handleConfirmMapping}
+    />
+    </>
   );
 }
