@@ -242,20 +242,20 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
     };
   };
 
-  const _looksLikeBoolean = (values: any[]): boolean => {
-    const stringValues = values.map(v => String(v).toLowerCase());
-    const booleanPairs = [
-      ['yes', 'no'],
-      ['true', 'false'],
-      ['1', '0'],
-      ['on', 'off'],
-      ['active', 'inactive']
-    ];
-    
-    return booleanPairs.some(pair => 
-      (stringValues.includes(pair[0]) && stringValues.includes(pair[1]))
-    );
-  };
+  // const _looksLikeBoolean = (values: any[]): boolean => {
+  //   const stringValues = values.map(v => String(v).toLowerCase());
+  //   const booleanPairs = [
+  //     ['yes', 'no'],
+  //     ['true', 'false'],
+  //     ['1', '0'],
+  //     ['on', 'off'],
+  //     ['active', 'inactive']
+  //   ];
+  //   
+  //   return booleanPairs.some(pair => 
+  //     (stringValues.includes(pair[0]) && stringValues.includes(pair[1]))
+  //   );
+  // };
 
   const ensureUniqueFieldNames = useCallback((mappingList: FieldMapping[]): FieldMapping[] => {
     const nameCount = new Map<string, number>();

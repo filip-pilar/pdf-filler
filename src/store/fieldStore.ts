@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Field } from '../types/field.types';
+import type { Field, FieldType } from '../types/field.types';
 // Legacy types - temporarily defined here
 type LogicField = any;
 type FieldOption = any;
@@ -338,7 +338,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       f.key === fieldKey 
         ? {
             ...f, 
-            options: f.options.map(o => 
+            options: f.options.map((o: any) => 
               o.key === optionValue ? { ...o, ...updates } : o
             )
           }
@@ -349,7 +349,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   deleteOption: (fieldKey, optionValue) => set((state) => ({
     logicFields: state.logicFields.map(f => 
       f.key === fieldKey 
-        ? { ...f, options: f.options.filter(o => o.key !== optionValue) }
+        ? { ...f, options: f.options.filter((o: any) => o.key !== optionValue) }
         : f
     )
   })),
@@ -366,7 +366,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              options: f.options.map(o => 
+              options: f.options.map((o: any) => 
                 o.key === optionValue 
                   ? { ...o, actions: [...o.actions, newAction] }
                   : o
@@ -382,11 +382,11 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       f.key === fieldKey 
         ? {
             ...f,
-            options: f.options.map(o => 
+            options: f.options.map((o: any) => 
               o.key === optionValue 
                 ? {
                     ...o,
-                    actions: o.actions.map(a => 
+                    actions: o.actions.map((a: any) => 
                       a.id === actionId ? { ...a, ...updates } : a
                     )
                   }
@@ -402,9 +402,9 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       f.key === fieldKey 
         ? {
             ...f,
-            options: f.options.map(o => 
+            options: f.options.map((o: any) => 
               o.key === optionValue 
-                ? { ...o, actions: o.actions.filter(a => a.id !== actionId) }
+                ? { ...o, actions: o.actions.filter((a: any) => a.id !== actionId) }
                 : o
             )
           }
@@ -417,7 +417,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       f.key === fieldKey 
         ? {
             ...f,
-            options: f.options.map(o => 
+            options: f.options.map((o: any) => 
               o.key === optionValue 
                 ? { ...o, actions: [] }
                 : o
@@ -432,10 +432,10 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     const field = state.logicFields.find(f => f.key === fieldKey);
     if (!field) return;
     
-    const option = field.options.find(o => o.key === optionValue);
+    const option = field.options.find((o: any) => o.key === optionValue);
     if (!option) return;
     
-    const action = option.actions.find(a => a.id === actionId);
+    const action = option.actions.find((a: any) => a.id === actionId);
     if (!action) return;
     
     const newAction: FieldAction = {
@@ -453,7 +453,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              options: f.options.map(o => 
+              options: f.options.map((o: any) => 
                 o.key === optionValue 
                   ? { ...o, actions: [...o.actions, newAction] }
                   : o
@@ -470,11 +470,11 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              options: f.options.map(o => 
+              options: f.options.map((o: any) => 
                 o.key === optionValue 
                   ? {
                       ...o,
-                      actions: o.actions.map(a => 
+                      actions: o.actions.map((a: any) => 
                         a.id === actionId 
                           ? { ...a, position }
                           : a
@@ -502,8 +502,8 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     
     const state = get();
     state.logicFields.forEach(field => {
-      field.options.forEach(option => {
-        option.actions.forEach(action => {
+      field.options.forEach((option: any) => {
+        option.actions.forEach((action: any) => {
           if (action.position.page === pageNumber) {
             results.push({
               action,
@@ -528,7 +528,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     const state = get();
     state.booleanFields.forEach(field => {
       // Add TRUE actions
-      field.trueActions.forEach(action => {
+      field.trueActions.forEach((action: any) => {
         if (action.position.page === pageNumber) {
           results.push({
             action,
@@ -538,7 +538,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         }
       });
       // Add FALSE actions
-      field.falseActions.forEach(action => {
+      field.falseActions.forEach((action: any) => {
         if (action.position.page === pageNumber) {
           results.push({
             action,
@@ -628,7 +628,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map(a => 
+              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map((a: any) => 
                 a.id === actionId ? { ...a, ...updates } : a
               )
             }
@@ -643,7 +643,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].filter(a => 
+              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].filter((a: any) => 
                 a.id !== actionId
               )
             }
@@ -658,7 +658,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     if (!field) return;
     
     const actions = isTrue ? field.trueActions : field.falseActions;
-    const action = actions.find(a => a.id === actionId);
+    const action = actions.find((a: any) => a.id === actionId);
     if (!action) return;
     
     const newAction: BooleanFieldAction = {
@@ -692,7 +692,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         f.key === fieldKey 
           ? {
               ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map(a => 
+              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map((a: any) => 
                 a.id === actionId ? { ...a, position } : a
               )
             }
@@ -758,7 +758,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       variant: fieldData.variant || 'single',
       page: fieldData.page || 1,
       position: fieldData.position || { x: 100, y: 100 },
-      size: fieldData.size || getDefaultFieldSize(fieldType),
+      size: fieldData.size || (fieldType === 'logic' ? { width: 120, height: 32 } : getDefaultFieldSize(fieldType)),
       enabled: fieldData.enabled !== false, // Default true unless explicitly false
       structure: fieldData.structure || 'simple',
       placementCount: fieldData.placementCount || 1,
@@ -892,7 +892,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   convertLogicFieldToUnified: (logicField) => {
     // Convert each option to a unified field
-    return logicField.options.map(option => {
+    return logicField.options.map((option: any) => {
       const firstAction = option.actions[0];
       const actionHeight = firstAction?.size?.height || 30;
       const position = firstAction?.position || { x: 100, y: 100 };
@@ -982,7 +982,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     state.logicFields.forEach(logicField => {
       const converted = get().convertLogicFieldToUnified(logicField);
       unifiedFields.push(...converted);
-      if (logicField.options.some(o => o.actions.length > 1)) {
+      if (logicField.options.some((o: any) => o.actions.length > 1)) {
         warnings.push(`Logic field "${logicField.key}" had multiple actions per option. Only first action was migrated.`);
       }
     });

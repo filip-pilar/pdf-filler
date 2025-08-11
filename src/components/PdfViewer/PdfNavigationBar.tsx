@@ -22,7 +22,6 @@ export function PdfNavigationBar({
   onPageChange,
   onZoomIn,
   onZoomOut,
-  onFitToWidth,
   onZoomChange
 }: PdfNavigationBarProps) {
   const [zoomInput, setZoomInput] = useState(`${Math.round(scale * 100)}`);

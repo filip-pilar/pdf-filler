@@ -48,7 +48,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const handleCancel = () => {
     setGeneratedFields([]);
     setError('');
-    setShowMappingDialog(false);
     onOpenChange(false);
   };
 

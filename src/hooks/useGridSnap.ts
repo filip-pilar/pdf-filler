@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 
-export function useGridSnap(pageHeight?: number) {
+export function useGridSnap() {
   const { gridEnabled: enabled, gridSize: size } = useFieldStore();
   
   const snapX = useCallback((x: number) => {

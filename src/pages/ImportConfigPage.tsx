@@ -71,7 +71,7 @@ export function ImportConfigPage() {
           mapping.options.forEach((option: string, idx: number) => {
             addUnifiedField({
               key: `${mapping.key}_${option}`,
-              type: mapping.type,
+              type: mapping.type as any,
               variant: 'single',
               page: mapping.page,
               position: { 
@@ -98,18 +98,18 @@ export function ImportConfigPage() {
           // Add single unified field
           const fieldToAdd = {
             key: mapping.key,
-            type: mapping.type,
-            variant: mapping.fieldVariant,
+            type: mapping.type as any,
+            variant: mapping.fieldVariant as any,
             page: mapping.page,
             position: { 
               x: offset.x, 
               y: offset.y + (offset.count * 40) // Stack fields vertically with 40px spacing
             },
             enabled: true,
-            structure: mapping.fieldVariant === 'text-list' ? 'array' : 'simple',
+            structure: (mapping.fieldVariant === 'text-list' ? 'array' : 'simple') as any,
             placementCount: mapping.placementCount,
             options: mapping.options,
-            sampleValue: state.fields.find(f => f.key === mapping.key)?.sampleValue,
+            sampleValue: state.fields.find((f: any) => f.key === mapping.key)?.sampleValue,
             positionVersion: 'top-edge' as const
           };
           addUnifiedField(fieldToAdd);

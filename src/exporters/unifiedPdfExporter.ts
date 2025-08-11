@@ -98,11 +98,38 @@ async function renderOptionsField(
       
       switch (field.renderType) {
         case 'checkmark':
-          page.drawText('✓', {
-            x: position.x,
-            y: position.y,
-            size: mapping.size?.height || field.properties?.fontSize || 12,
-            font,
+          // Draw a small checkbox with X mark
+          const checkSize = mapping.size?.height || 16;
+          const boxX = position.x;
+          const boxY = position.y;
+          
+          // Draw checkbox border
+          page.drawRectangle({
+            x: boxX,
+            y: boxY,
+            width: checkSize,
+            height: checkSize,
+            borderColor: rgb(0, 0, 0),
+            borderWidth: 1,
+          });
+          
+          // Draw X mark inside
+          const padding = checkSize * 0.2;
+          const lineWidth = 1.5;
+          
+          // First diagonal
+          page.drawLine({
+            start: { x: boxX + padding, y: boxY + checkSize - padding },
+            end: { x: boxX + checkSize - padding, y: boxY + padding },
+            thickness: lineWidth,
+            color: getColor(field.properties?.textColor),
+          });
+          
+          // Second diagonal
+          page.drawLine({
+            start: { x: boxX + checkSize - padding, y: boxY + checkSize - padding },
+            end: { x: boxX + padding, y: boxY + padding },
+            thickness: lineWidth,
             color: getColor(field.properties?.textColor),
           });
           break;
@@ -152,14 +179,36 @@ async function renderSingleField(
     case 'checkbox':
       if (value === true || value === 'true' || value === 1 || value === '1') {
         const checkSize = field.properties?.checkboxSize || field.size?.width || 20;
-        const checkX = field.position.x + ((field.size?.width || checkSize) - checkSize) / 2;
-        const checkY = position.y + ((field.size?.height || checkSize) - checkSize) / 2;
+        const boxX = field.position.x;
+        const boxY = position.y;
         
-        page.drawText('✓', {
-          x: checkX,
-          y: checkY,
-          size: checkSize * 0.8,
-          font,
+        // Draw checkbox border
+        page.drawRectangle({
+          x: boxX,
+          y: boxY,
+          width: checkSize,
+          height: checkSize,
+          borderColor: rgb(0, 0, 0),
+          borderWidth: 1,
+        });
+        
+        // Draw X mark inside the box
+        const padding = checkSize * 0.2;
+        const lineWidth = 2;
+        
+        // First diagonal line (top-left to bottom-right)
+        page.drawLine({
+          start: { x: boxX + padding, y: boxY + checkSize - padding },
+          end: { x: boxX + checkSize - padding, y: boxY + padding },
+          thickness: lineWidth,
+          color: getColor(field.properties?.textColor),
+        });
+        
+        // Second diagonal line (top-right to bottom-left)
+        page.drawLine({
+          start: { x: boxX + checkSize - padding, y: boxY + checkSize - padding },
+          end: { x: boxX + padding, y: boxY + padding },
+          thickness: lineWidth,
           color: getColor(field.properties?.textColor),
         });
       }
@@ -279,7 +328,7 @@ async function renderSingleField(
         
         // Draw each line
         const lineHeight = fontSize * (field.properties?.lineHeight || 1.2);
-        const totalHeight = lines.length * lineHeight;
+        // const totalHeight = lines.length * lineHeight;
         const startY = position.y + (field.size?.height || 30) - (padding.top || 2) - fontSize;
         
         lines.forEach((line, index) => {

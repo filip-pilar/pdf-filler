@@ -72,7 +72,7 @@ export function OptionsFieldDialog({
     unifiedFields,
     currentPage 
   } = useFieldStore();
-  const { startPicking, isPickingPosition } = usePositionPickerStore();
+  const { startPicking } = usePositionPickerStore();
   
   // Basic field info
   const [fieldKey, setFieldKey] = useState('');
@@ -118,7 +118,7 @@ export function OptionsFieldDialog({
   useEffect(() => {
     if (open && placementStateRef) {
       // We have placement state - either continuing placement or just finished
-      const fieldIdToEdit = placementStateRef.editingFieldId || editingFieldId;
+      // const fieldIdToEdit = placementStateRef.editingFieldId || editingFieldId;
       
       // Restore state from placement
       setFieldKey(placementStateRef.fieldKey);
@@ -147,20 +147,19 @@ export function OptionsFieldDialog({
             key: m.key,
             position: m.position,
             customText: m.customText,
-            sampleValue: m.sampleValue,
             placed: true
           }));
           setOptionMappings(loadedMappings);
           
-          // Determine render type from first mapping (all should have same renderType)
-          const firstMapping = field.optionMappings[0];
-          if (firstMapping.renderType) {
-            setRenderType(firstMapping.renderType);
+          // Use field's renderType if available
+          if (field.renderType) {
+            setRenderType(field.renderType);
           }
           
           // Determine placement mode from structure field or by checking positions
           // Structure field is more reliable than checking positions
-          if (field.structure === 'merged') {
+          const firstMapping = field.optionMappings[0];
+          if (field.structure === 'array') {
             setPlacementMode('combined');
             setCombinedPosition(firstMapping.position || null);
           } else {
@@ -353,12 +352,11 @@ export function OptionsFieldDialog({
       key: fieldKey.trim(),
       type: 'text' as const,
       variant: 'options' as const,
+      renderType: renderType,
       optionMappings: optionMappings.map(m => ({
         key: m.key,
         position: m.position || { x: 100, y: 100 }, // Default position if not placed
-        renderType: renderType,
         customText: renderType === 'custom' ? m.customText : undefined,
-        sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 }
@@ -368,7 +366,7 @@ export function OptionsFieldDialog({
       size: renderType === 'checkmark' 
         ? { width: 25, height: 25 }
         : { width: 100, height: 30 },
-      structure: placementMode === 'combined' ? 'merged' : 'simple',
+      structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
       enabled: true,
       placementCount: optionMappings.length
     };
@@ -446,18 +444,18 @@ export function OptionsFieldDialog({
       if (placementStateRef.editingFieldId) {
         const updatedFieldData = {
           position: position,
-          optionMappings: placementStateRef.optionMappings.map(m => ({
+          optionMappings: placementStateRef?.optionMappings.map(m => ({
             key: m.key,
             position: m.position!,
-            renderType: placementStateRef.renderType,
-            customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
-            sampleValue: placementStateRef.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
-            size: placementStateRef.renderType === 'checkmark' 
+            renderType: placementStateRef?.renderType,
+            customText: placementStateRef?.renderType === 'custom' ? m.customText : undefined,
+            sampleValue: placementStateRef?.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
+            size: placementStateRef?.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
           }))
         };
-        updateUnifiedField(placementStateRef.editingFieldId, updatedFieldData);
+        updateUnifiedField(placementStateRef?.editingFieldId!, updatedFieldData);
       }
       
       setIsPlacingOptions(false);
@@ -476,16 +474,16 @@ export function OptionsFieldDialog({
       };
       
       // Update field in store immediately with the new option position
-      if (placementStateRef.editingFieldId) {
+      if (placementStateRef?.editingFieldId) {
         const updatedFieldData = {
-          position: placementStateRef.optionMappings[0].position || position, // Use first option position as field position
-          optionMappings: placementStateRef.optionMappings.map(m => ({
+          position: placementStateRef?.optionMappings[0].position || position, // Use first option position as field position
+          optionMappings: placementStateRef?.optionMappings.map(m => ({
             key: m.key,
             position: m.position || { x: 100, y: 100 },
-            renderType: placementStateRef.renderType,
-            customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
-            sampleValue: placementStateRef.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
-            size: placementStateRef.renderType === 'checkmark' 
+            renderType: placementStateRef?.renderType,
+            customText: placementStateRef?.renderType === 'custom' ? m.customText : undefined,
+            sampleValue: placementStateRef?.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
+            size: placementStateRef?.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
           }))
@@ -526,9 +524,9 @@ export function OptionsFieldDialog({
             setTimeout(() => {
               startPicking({
                 actionId: `options-field-${nextOption.key}`,
-                content: placementStateRef.renderType === 'checkmark' ? '✓' : (placementStateRef.renderType === 'custom' ? nextOption.customText || nextOption.key : (nextOption.sampleValue || nextOption.key)),
-                optionLabel: `${placementStateRef.fieldKey} (${totalOptions - unplacedCount + 1}/${totalOptions})`,
-                actionType: placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text',
+                content: placementStateRef?.renderType === 'checkmark' ? '✓' : (placementStateRef?.renderType === 'custom' ? nextOption.customText || nextOption.key : (nextOption.sampleValue || nextOption.key)),
+                optionLabel: `${placementStateRef?.fieldKey} (${totalOptions - unplacedCount + 1}/${totalOptions})`,
+                actionType: placementStateRef?.renderType === 'checkmark' ? 'checkmark' : 'text',
                 onComplete: () => {},
                 onCancel: () => {
                   setIsPlacingOptions(false);
@@ -615,12 +613,11 @@ export function OptionsFieldDialog({
         key: fieldKey.trim(),
         type: 'text' as const,
         variant: 'options' as const,
+        renderType: renderType,
         optionMappings: finalMappings.map(m => ({
           key: m.key,
           position: m.position!,
-          renderType: renderType,
           customText: renderType === 'custom' ? m.customText : undefined,
-          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
           size: renderType === 'checkmark' 
             ? { width: 25, height: 25 }
             : { width: 100, height: 30 }
@@ -630,7 +627,7 @@ export function OptionsFieldDialog({
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 },
-        structure: placementMode === 'combined' ? 'merged' : 'simple',
+        structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
         enabled: true,
         placementCount: optionMappings.length
       };
@@ -647,12 +644,11 @@ export function OptionsFieldDialog({
         key: fieldKey.trim(),
         type: 'text' as const,
         variant: 'options' as const,
+        renderType: renderType,
         optionMappings: finalMappings.map(m => ({
           key: m.key,
           position: m.position!,
-          renderType: renderType,
           customText: renderType === 'custom' ? m.customText : undefined,
-          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
           size: renderType === 'checkmark' 
             ? { width: 25, height: 25 }
             : { width: 100, height: 30 }
@@ -662,7 +658,7 @@ export function OptionsFieldDialog({
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 },
-        structure: placementMode === 'combined' ? 'merged' : 'simple',
+        structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
         enabled: true,
         placementCount: optionMappings.length
       };

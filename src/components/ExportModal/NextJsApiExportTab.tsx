@@ -7,7 +7,7 @@ interface NextJsApiExportTabProps {
   unifiedFields?: UnifiedField[];
 }
 
-export function NextJsApiExportTab({ pdfFileName, unifiedFields = [] }: NextJsApiExportTabProps) {
+export function NextJsApiExportTab({ unifiedFields = [] }: NextJsApiExportTabProps) {
   const fieldCount = unifiedFields.length;
   
   const code = fieldCount === 0

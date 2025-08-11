@@ -33,7 +33,7 @@ export function PdfDropTarget({
 }: PdfDropTargetProps) {
   const dropRef = useRef<HTMLDivElement>(null);
   const { gridEnabled } = useFieldStore();
-  const { snapPosition } = useGridSnap(pageHeight);
+  const { snapPosition } = useGridSnap();
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: 'NEW_FIELD',

@@ -52,7 +52,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
   
   const { 
     pdfUrl, 
-    showGrid, 
     gridSize, 
     gridEnabled,
     setCurrentPage: setStoreCurrentPage,
@@ -60,10 +59,9 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
     unifiedFields,
     addUnifiedField,
     selectedUnifiedFieldId,
-    selectUnifiedField,
     deselectUnifiedField
   } = useFieldStore();
-  const { snapPosition } = useGridSnap(naturalPageSize.height);
+  const { snapPosition } = useGridSnap();
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
   
   // Handle double-click on unified fields

@@ -5,10 +5,9 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Minus, Plus, Type, Square, Image, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Trash2 } from 'lucide-react';
+import { Minus, Plus, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Trash2 } from 'lucide-react';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
-import { cn } from '@/lib/utils';
 
 interface UnifiedFieldContextToolbarProps {
   field: UnifiedField;

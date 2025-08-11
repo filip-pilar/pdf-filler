@@ -184,13 +184,6 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     // Convert to data URL as PNG with dimensions metadata
     const dataURL = croppedCanvas.toDataURL('image/png');
     
-    // Include the actual dimensions in the data for proper field sizing
-    const signatureData = {
-      dataUrl: dataURL,
-      width: bounds.width,
-      height: bounds.height
-    };
-    
     // For backward compatibility, still pass the dataURL string
     // The dimensions will be used when creating the field
     onSignatureSave(dataURL);

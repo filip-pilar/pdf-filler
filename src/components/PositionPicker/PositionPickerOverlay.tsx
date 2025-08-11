@@ -15,7 +15,7 @@ interface PositionPickerOverlayProps {
 
 export function PositionPickerOverlay({ onPositionClick, pageWidth, pageHeight, scale }: PositionPickerOverlayProps) {
   const { pickingContent, pickingOptionLabel, pickingActionType, cancelPicking } = usePositionPickerStore();
-  const { gridEnabled, gridSize, showGrid } = useFieldStore();
+  const { gridEnabled, gridSize } = useFieldStore();
   const { snapX, snapY } = useGridSnap();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [snappedPosition, setSnappedPosition] = useState({ x: 0, y: 0 });

@@ -4,7 +4,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { 
   Table, 
   TableBody, 
@@ -21,7 +20,7 @@ import {
   Redo2,
   FileText
 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 type FieldVariant = 'single' | 'text-multi' | 'checkbox-multi' | 'text-list';
 type LayoutDirection = 'vertical' | 'horizontal' | 'grid';
@@ -243,20 +242,20 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
     };
   };
 
-  const looksLikeBoolean = (values: any[]): boolean => {
-    const stringValues = values.map(v => String(v).toLowerCase());
-    const booleanPairs = [
-      ['yes', 'no'],
-      ['true', 'false'],
-      ['1', '0'],
-      ['on', 'off'],
-      ['active', 'inactive']
-    ];
-    
-    return booleanPairs.some(pair => 
-      (stringValues.includes(pair[0]) && stringValues.includes(pair[1]))
-    );
-  };
+  // const _looksLikeBoolean = (values: any[]): boolean => {
+  //   const stringValues = values.map(v => String(v).toLowerCase());
+  //   const booleanPairs = [
+  //     ['yes', 'no'],
+  //     ['true', 'false'],
+  //     ['1', '0'],
+  //     ['on', 'off'],
+  //     ['active', 'inactive']
+  //   ];
+  //   
+  //   return booleanPairs.some(pair => 
+  //     (stringValues.includes(pair[0]) && stringValues.includes(pair[1]))
+  //   );
+  // };
 
   const ensureUniqueFieldNames = useCallback((mappingList: FieldMapping[]): FieldMapping[] => {
     const nameCount = new Map<string, number>();
@@ -282,7 +281,7 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
     fields.forEach((field, idx) => {
       // Auto-flatten objects into separate fields
       if (field.structure === 'object' && field.nestedKeys && field.nestedKeys.length > 0) {
-        field.nestedKeys.forEach((nestedKey, nestedIdx) => {
+        field.nestedKeys.forEach((nestedKey: any) => {
           const nestedValue = field.sampleValue?.[nestedKey];
           processedFields.push({
             id: `field-${idx}-${field.key}-${nestedKey}`,
@@ -784,16 +783,19 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
                       const simplifiedMappings = mappings
                         .filter(m => m.enabled)
                         .map(m => ({
+                          id: m.id,
                           key: m.key,
+                          displayName: m.displayName,
                           type: m.type,
                           page: m.page,
+                          enabled: m.enabled,
                           placementCount: m.placementCount,
                           fieldVariant: m.fieldVariant,
                           // Only include options as simple array of values for arrays
                           ...(m.options && m.fieldVariant !== 'single' ? { 
                             options: m.options.map(opt => opt.value) 
                           } : {})
-                        }));
+                        }) as FieldMapping);
                       onConfirm(simplifiedMappings);
                     }}
                     disabled={mappings.filter(m => m.enabled).length === 0}

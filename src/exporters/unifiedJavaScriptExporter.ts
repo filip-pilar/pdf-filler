@@ -265,7 +265,7 @@ const url = URL.createObjectURL(blob);
 ${exports}`;
 }
 
-function generateExpressService(includeTypes: boolean, moduleType: 'esm' | 'commonjs'): string {
+function generateExpressService(_includeTypes: boolean, moduleType: 'esm' | 'commonjs'): string {
   const imports = moduleType === 'esm'
     ? `import express from 'express';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -332,7 +332,7 @@ app.listen(PORT, () => {
 // Add the fillPDF function from vanilla service here...`;
 }
 
-function generateHonoService(includeTypes: boolean): string {
+function generateHonoService(_includeTypes: boolean): string {
   return `import { Hono } from 'hono';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 

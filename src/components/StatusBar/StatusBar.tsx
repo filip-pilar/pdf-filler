@@ -5,12 +5,12 @@ import { FileText, Hash, Workflow, AlertCircle } from 'lucide-react';
 export function StatusBar() {
   const { fields, logicFields, pdfFile } = useFieldStore();
   
-  const totalActions = logicFields.reduce((sum, field) => 
-    sum + field.options.reduce((optSum, opt) => optSum + opt.actions.length, 0), 0
+  const totalActions = logicFields.reduce((sum: number, field: any) => 
+    sum + field.options.reduce((optSum: number, opt: any) => optSum + opt.actions.length, 0), 0
   );
   
-  const incompleteFields = logicFields.filter(f => 
-    f.options.some(opt => opt.actions.length === 0)
+  const incompleteFields = logicFields.filter((f: any) => 
+    f.options.some((opt: any) => opt.actions.length === 0)
   ).length;
 
   return (

@@ -9,7 +9,6 @@ import {
   ChevronDown,
   FileText,
   List,
-  Hash,
   Settings
 } from 'lucide-react';
 import {

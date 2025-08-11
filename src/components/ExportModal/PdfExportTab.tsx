@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileDown, Download, Eye } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
 import { exportUnifiedPDF, downloadPDF } from '@/exporters/unifiedPdfExporter';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { toast } from 'sonner';
@@ -75,22 +75,6 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
               default:
                 values[field.key] = field.properties?.defaultValue || '';
             }
-          }
-        }
-      }
-    } else {
-      // Legacy fields
-      for (const field of fields) {
-        if (field.sampleValue !== undefined) {
-          values[field.key] = field.sampleValue;
-        } else {
-          switch (field.type) {
-            case 'checkbox':
-              values[field.key] = true;
-              break;
-            case 'text':
-              values[field.key] = `Sample ${field.key}`;
-              break;
           }
         }
       }

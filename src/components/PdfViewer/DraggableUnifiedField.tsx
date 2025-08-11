@@ -5,7 +5,7 @@ import { useFieldStore } from '@/store/fieldStore';
 import { useGridSnap } from '@/hooks/useGridSnap';
 import type { UnifiedField, OptionRenderType } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
-import { Type, Image, PenTool, RadioIcon, CheckSquare, Move, Settings, Minus, Plus } from 'lucide-react';
+import { Image, PenTool, Move, Settings, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -36,8 +36,8 @@ export function DraggableUnifiedField({
   onDoubleClick,
   onClick
 }: DraggableUnifiedFieldProps) {
-  const { updateUnifiedField, deleteUnifiedField } = useFieldStore();
-  const { snapPosition, snapSize, gridSize, isEnabled } = useGridSnap(pageHeight);
+  const { updateUnifiedField } = useFieldStore();
+  const { snapPosition, snapSize, gridSize, isEnabled } = useGridSnap();
   const nodeRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -54,7 +54,7 @@ export function DraggableUnifiedField({
   });
   
   const [fitMode, setFitMode] = useState<'fit' | 'fill'>(
-    field.properties?.fitMode || 'fit'
+    (field.properties?.fitMode === 'fit' || field.properties?.fitMode === 'fill') ? field.properties.fitMode : 'fit'
   );
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -113,15 +113,15 @@ export function DraggableUnifiedField({
     : pageHeight - field.position.y;
 
   // Get appropriate icon for field type/variant
-  const getFieldIcon = () => {
-    if (renderType === 'checkmark' || field.type === 'checkbox') {
-      return <CheckSquare className="h-3 w-3" />;
-    }
-    if (field.type === 'image') return <Image className="h-3 w-3" />;
-    if (field.type === 'signature') return <PenTool className="h-3 w-3" />;
-    if (field.variant === 'options') return <RadioIcon className="h-3 w-3" />;
-    return <Type className="h-3 w-3" />;
-  };
+  // const getFieldIcon = () => {
+  //   if (renderType === 'checkmark' || field.type === 'checkbox') {
+  //     return <CheckSquare className="h-3 w-3" />;
+  //   }
+  //   if (field.type === 'image') return <Image className="h-3 w-3" />;
+  //   if (field.type === 'signature') return <PenTool className="h-3 w-3" />;
+  //   if (field.variant === 'options') return <RadioIcon className="h-3 w-3" />;
+  //   return <Type className="h-3 w-3" />;
+  // };
 
   // Get display value based on field type and structure
   const getDisplayValue = () => {
@@ -159,9 +159,9 @@ export function DraggableUnifiedField({
   const displayValue = getDisplayValue();
   const isCheckbox = field.type === 'checkbox';
   const isEmptyCheckbox = isCheckbox && !field.sampleValue;
-  const isImage = field.type === 'image';
-  const isSignature = field.type === 'signature';
-  const hasImageData = (isImage || isSignature) && field.sampleValue && typeof field.sampleValue === 'string' && field.sampleValue.startsWith('data:');
+  // const isImage = field.type === 'image';
+  // const isSignature = field.type === 'signature';
+  // const hasImageData = (isImage || isSignature) && field.sampleValue && typeof field.sampleValue === 'string' && field.sampleValue.startsWith('data:');
   
   // Get field dimensions with proper defaults based on type
   const getDefaultSize = () => {

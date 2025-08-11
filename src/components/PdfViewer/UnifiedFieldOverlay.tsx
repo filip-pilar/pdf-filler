@@ -48,10 +48,10 @@ export function UnifiedFieldOverlay({
                   position: mapping.position,
                   size: mapping.size || field.size,
                   // Pass the sample value or custom text based on render type
-                  sampleValue: mapping.renderType === 'custom' 
+                  sampleValue: field.renderType === 'custom' 
                     ? mapping.customText 
-                    : mapping.renderType === 'text' 
-                      ? mapping.sampleValue 
+                    : field.renderType === 'text' 
+                      ? field.sampleValue 
                       : undefined
                 }}
                 scale={scale}
@@ -59,7 +59,7 @@ export function UnifiedFieldOverlay({
                 pageHeight={pageHeight}
                 isSelected={selectedFieldId === field.id}
                 optionKey={mapping.key}
-                renderType={mapping.renderType}
+                renderType={field.renderType}
                 onClick={() => selectUnifiedField(field.id)}
                 onDoubleClick={() => onFieldDoubleClick?.(field)}
               />

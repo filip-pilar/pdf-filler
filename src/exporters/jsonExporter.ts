@@ -1,6 +1,6 @@
 import type { Field } from '@/types/field.types';
 import type { ExportConfig } from '@/types/export.types';
-import type { UnifiedField, UnifiedFieldExport } from '@/types/unifiedField.types';
+import type { UnifiedField } from '@/types/unifiedField.types';
 // Legacy types - temporarily defined here
 type LogicField = any;
 type LogicFieldExport = any;
@@ -28,10 +28,10 @@ export function exportToJSON(
   const exportLogicFields: LogicFieldExport[] = (logicFields || []).map(lf => ({
     key: lf.key,
     label: lf.label,
-    options: lf.options.map(opt => ({
+    options: lf.options.map((opt: any) => ({
       key: opt.key,
       label: opt.label,
-      actions: opt.actions.map(act => ({
+      actions: opt.actions.map((act: any) => ({
         type: act.type,
         position: act.position,
         customText: act.customText,
