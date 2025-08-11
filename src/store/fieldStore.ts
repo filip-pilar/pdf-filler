@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import type { Field } from '../types/field.types';
-import type { LogicField, FieldOption, FieldAction } from '../types/logicField.types';
-import type { BooleanField, BooleanFieldAction } from '../types/booleanField.types';
+// Legacy types - temporarily defined here
+type LogicField = any;
+type FieldOption = any;
+type FieldAction = any;
+type BooleanField = any;
+type BooleanFieldAction = any;
 import type { UnifiedField, FieldMigrationResult } from '../types/unifiedField.types';
 
 export type GridSize = 10 | 25 | 50 | 100;
@@ -133,9 +137,11 @@ const generateFieldKey = (type: string, existingFields: Field[]): string => {
   const sameTypeKeys = existingFields
     .filter(f => f.type === type)
     .map(f => {
-      const match = f.key.match(new RegExp(`^${type}_(\d+)$`));
+      // Use \\d in template literal to get \d in regex
+      const match = f.key.match(new RegExp(`^${type}_(\\d+)$`));
       return match ? parseInt(match[1]) : 0;
-    });
+    })
+    .filter(num => num > 0); // Only consider valid numbers
   
   // Find the next available number
   const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
@@ -150,9 +156,11 @@ const generateUnifiedFieldKey = (type: string, existingFields: UnifiedField[]): 
   const sameTypeKeys = existingFields
     .filter(f => f.type === type)
     .map(f => {
-      const match = f.key.match(new RegExp(`^${type}_(\d+)$`));
+      // Use \\d in template literal to get \d in regex
+      const match = f.key.match(new RegExp(`^${type}_(\\d+)$`));
       return match ? parseInt(match[1]) : 0;
-    });
+    })
+    .filter(num => num > 0); // Only consider valid numbers
   
   // Find the next available number
   const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
@@ -701,25 +709,18 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     const fieldType = fieldData.type || 'text';
     const existingFields = get().unifiedFields;
     
-    // Generate unique key with collision detection
-    let generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
-    const existingKeys = new Set(existingFields.map(f => f.key));
-    let keyAttempts = 0;
-    while (existingKeys.has(generatedKey) && keyAttempts < 100) {
-      // Add random suffix if collision detected
-      generatedKey = `${fieldType}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-      keyAttempts++;
-    }
+    // Generate unique key - generateUnifiedFieldKey already handles incrementing properly
+    const generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
     
     // Set default sample value based on field type
     const defaultSampleValue = (() => {
       if (fieldData.sampleValue !== undefined) return fieldData.sampleValue;
       switch(fieldType) {
-        case 'text': return 'Sample Text';
-        case 'checkbox': return false;
+        case 'text': return 'Your text here';
+        case 'checkbox': return true;  // Default to checked
         case 'image': return null;
         case 'signature': return null;
-        default: return 'Sample Text';
+        default: return 'Your text here';
       }
     })();
     
@@ -735,12 +736,24 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     // First spread fieldData (excluding properties), then override with our defaults
     const { properties: userProperties, ...fieldDataWithoutProperties } = fieldData;
     
+    // Use the generated key or provided key
+    const finalKey = fieldData.key || generatedKey;
+    
+    // Check for duplicate keys
+    const existingFieldWithKey = existingFields.find(f => f.key === finalKey);
+    if (existingFieldWithKey) {
+      console.warn(`Duplicate key detected: "${finalKey}". This will cause issues with field generation!`);
+      // Force a unique key by appending timestamp
+      const uniqueKey = `${finalKey}_${Date.now()}`;
+      console.warn(`Using unique key instead: "${uniqueKey}"`);
+    }
+    
     const newField: UnifiedField = {
       // 1. First apply user data (except properties)
       ...fieldDataWithoutProperties,
       // 2. Then set required fields with proper defaults
       id,
-      key: fieldData.key || generatedKey,
+      key: existingFieldWithKey ? `${finalKey}_${Date.now()}` : finalKey,
       type: fieldType,
       variant: fieldData.variant || 'single',
       page: fieldData.page || 1,

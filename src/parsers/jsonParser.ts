@@ -1,5 +1,13 @@
 import type { Field, FieldType } from '@/types/field.types';
 
+// Sanitize key to remove spaces and special characters
+function sanitizeFieldKey(key: string): string {
+  return key
+    .toLowerCase()
+    .replace(/\s+/g, '_')  // Replace spaces with underscores
+    .replace(/[^a-z0-9_]/g, '');  // Remove all non-alphanumeric chars except underscore
+}
+
 interface ParsedField {
   path: string;
   value: unknown;
@@ -130,10 +138,11 @@ export function generateFieldsFromJSON(jsonString: string, startPosition = { x: 
         .replace(/\b\w/g, l => l.toUpperCase());
       
       // Generate a valid key from the path
-      const key = field.path
-        .replace(/\./g, '_')
-        .replace(/\[\]/g, '_array')
-        .replace(/[^a-zA-Z0-9_]/g, '');
+      const key = sanitizeFieldKey(
+        field.path
+          .replace(/\./g, '_')
+          .replace(/\[\]/g, '_array')
+      );
       
       fields.push({
         type: fieldType,

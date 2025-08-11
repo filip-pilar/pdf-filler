@@ -243,9 +243,20 @@ export function OptionsFieldDialog({
   }, [isPlacingOptions, currentPlacingIndex, optionMappings, placementMode]);
 
   const handleAddOption = () => {
-    const cleaned = newOptionKey.trim();
-    if (!cleaned) {
+    const trimmed = newOptionKey.trim();
+    if (!trimmed) {
       setOptionKeyError('Option key is required');
+      return;
+    }
+    
+    // Sanitize the key - replace spaces with underscores and remove special characters
+    const cleaned = trimmed
+      .replace(/\s+/g, '_')  // Replace spaces with underscores
+      .replace(/[^a-zA-Z0-9_-]/g, '')  // Remove all non-alphanumeric chars except _ and -
+      .toLowerCase();  // Convert to lowercase for consistency
+    
+    if (!cleaned) {
+      setOptionKeyError('Option key must contain valid characters');
       return;
     }
     
@@ -866,6 +877,21 @@ export function OptionsFieldDialog({
                 </div>
                 {optionKeyError && (
                   <p className="text-xs text-destructive">{optionKeyError}</p>
+                )}
+                {!optionKeyError && newOptionKey.trim() && (
+                  <p className="text-xs text-muted-foreground">
+                    Will be saved as: <span className="font-mono text-foreground">
+                      {newOptionKey.trim()
+                        .replace(/\s+/g, '_')
+                        .replace(/[^a-zA-Z0-9_-]/g, '')
+                        .toLowerCase()}
+                    </span>
+                  </p>
+                )}
+                {!optionKeyError && !newOptionKey.trim() && (
+                  <p className="text-xs text-muted-foreground">
+                    Spaces will become underscores, special characters will be removed
+                  </p>
                 )}
               </div>
               

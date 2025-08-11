@@ -1,5 +1,13 @@
 import type { Field, FieldType } from '@/types/field.types';
 
+// Sanitize key to remove spaces and special characters
+function sanitizeFieldKey(key: string): string {
+  return key
+    .toLowerCase()
+    .replace(/\s+/g, '_')  // Replace spaces with underscores
+    .replace(/[^a-z0-9_]/g, '');  // Remove all non-alphanumeric chars except underscore
+}
+
 interface ParsedProperty {
   name: string;
   type: string;
@@ -209,7 +217,7 @@ export function generateFieldsFromTypeScript(code: string, startPosition = { x: 
     
     const field: Partial<Field> = {
       type: fieldType,
-      key: property.name,
+      key: sanitizeFieldKey(property.name),
       displayName,
       name: property.name,
       page,

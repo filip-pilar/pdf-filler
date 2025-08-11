@@ -1,5 +1,6 @@
 import type { Field } from './field.types';
-import type { LogicFieldExport } from './logicField.types';
+// Legacy type - temporarily defined here
+type LogicFieldExport = any;
 
 export interface ExportConfig {
   version: string;

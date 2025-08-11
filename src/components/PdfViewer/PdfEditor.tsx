@@ -6,18 +6,13 @@ import { useGridSnap } from '@/hooks/useGridSnap';
 import { PdfNavigationBar } from './PdfNavigationBar';
 import { PdfCanvas } from './PdfCanvas';
 import { GridOverlay } from './GridOverlay';
-import { FieldOverlay } from './FieldOverlay';
 import { UnifiedFieldOverlay } from './UnifiedFieldOverlay';
-import { FieldPropertiesDialog } from '@/components/FieldPropertiesDialog/FieldPropertiesDialog';
-import { LogicFieldDialog } from '@/components/LogicFieldDialog/LogicFieldDialog';
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { PositionPickerOverlay } from '@/components/PositionPicker/PositionPickerOverlay';
 import { PdfDropTarget } from './PdfDropTarget';
 import { cn } from '@/lib/utils';
-import type { Field } from '@/types/field.types';
 import type { FieldType } from '@/types/field.types';
-import type { LogicField } from '@/types/logicField.types';
 import type { UnifiedField } from '@/types/unifiedField.types';
 
 // Set worker URL
@@ -47,10 +42,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
   const [scale, setScale] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const [naturalPageSize, setNaturalPageSize] = useState({ width: 0, height: 0 });
-  const [newFieldForConfig, setNewFieldForConfig] = useState<Field | null>(null);
-  const [showFieldConfig, setShowFieldConfig] = useState(false);
-  const [showLogicFieldDialog, setShowLogicFieldDialog] = useState(false);
-  const [editingLogicField, setEditingLogicField] = useState<LogicField | null>(null);
   
   // Unified field dialog state
   const [unifiedFieldForConfig, setUnifiedFieldForConfig] = useState<UnifiedField | null>(null);
@@ -60,17 +51,12 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
   const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | undefined>();
   
   const { 
-    fields, 
-    selectedFieldKey,
-    getAllActionsForPage,
-    getAllBooleanActionsForPage,
     pdfUrl, 
     showGrid, 
     gridSize, 
     gridEnabled,
     setCurrentPage: setStoreCurrentPage,
     setTotalPages,
-    useUnifiedFields,
     unifiedFields,
     addUnifiedField,
     selectedUnifiedFieldId,
@@ -93,8 +79,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
 
   // Handle field drops from sidebar
   const handleFieldDrop = (fieldType: FieldType, position: { x: number; y: number }, page: number) => {
-    if (!useUnifiedFields) return;
-
     // Create a new unified field with the dropped type and position
     const newField = addUnifiedField({
       // Don't provide a key - let the store generate it properly (text_1, checkbox_2, etc.)
@@ -139,8 +123,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
     setNaturalPageSize({ width: width / scale, height: height / scale });
   };
 
-  const currentPageActions = getAllActionsForPage(currentPage);
-  const currentPageBooleanActions = getAllBooleanActionsForPage(currentPage);
 
 
   return (
@@ -206,28 +188,15 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                   gridSize={gridSize}
                 />
                 
-                {useUnifiedFields ? (
-                  <UnifiedFieldOverlay
-                    fields={unifiedFields}
-                    selectedFieldId={selectedUnifiedFieldId}
-                    currentPage={currentPage}
-                    scale={scale}
-                    pageWidth={naturalPageSize.width}
-                    pageHeight={naturalPageSize.height}
-                    onFieldDoubleClick={handleUnifiedFieldDoubleClick}
-                  />
-                ) : (
-                  <FieldOverlay
-                    fields={fields}
-                    actions={currentPageActions}
-                    booleanActions={currentPageBooleanActions}
-                    selectedFieldKey={selectedFieldKey}
-                    currentPage={currentPage}
-                    scale={scale}
-                    pageWidth={pageSize.width}
-                    pageHeight={pageSize.height}
-                  />
-                )}
+                <UnifiedFieldOverlay
+                  fields={unifiedFields}
+                  selectedFieldId={selectedUnifiedFieldId}
+                  currentPage={currentPage}
+                  scale={scale}
+                  pageWidth={naturalPageSize.width}
+                  pageHeight={naturalPageSize.height}
+                  onFieldDoubleClick={handleUnifiedFieldDoubleClick}
+                />
 
                 
                 {isPickingPosition && (
@@ -281,29 +250,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
         </div>
       </div>
 
-      {newFieldForConfig && (
-        <FieldPropertiesDialog
-          field={newFieldForConfig}
-          open={showFieldConfig}
-          onOpenChange={(open) => {
-            setShowFieldConfig(open);
-            if (!open) {
-              setNewFieldForConfig(null);
-            }
-          }}
-        />
-      )}
-      
-      <LogicFieldDialog
-        open={showLogicFieldDialog}
-        onOpenChange={(open) => {
-          setShowLogicFieldDialog(open);
-          if (!open) {
-            setEditingLogicField(null);
-          }
-        }}
-        logicField={editingLogicField}
-      />
       
       <FieldConfigDialog
         field={unifiedFieldForConfig}

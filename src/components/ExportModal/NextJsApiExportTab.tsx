@@ -1,26 +1,18 @@
 import { CodeViewer } from '@/components/common/CodeViewer';
-import { generateNextJsApiRoute } from '@/exporters/nextjsApiExporter';
 import { generateUnifiedNextJsApiRoute } from '@/exporters/unifiedNextJsExporter';
-import type { Field } from '@/types/field.types';
-import type { LogicField } from '@/types/logicField.types';
 import type { UnifiedField } from '@/types/unifiedField.types';
 
 interface NextJsApiExportTabProps {
-  fields: Field[];
-  logicFields: LogicField[];
   pdfFileName?: string;
   unifiedFields?: UnifiedField[];
 }
 
-export function NextJsApiExportTab({ fields, logicFields, unifiedFields }: NextJsApiExportTabProps) {
-  const useUnified = unifiedFields && unifiedFields.length > 0;
-  const fieldCount = useUnified ? unifiedFields.length : fields.length;
+export function NextJsApiExportTab({ pdfFileName, unifiedFields = [] }: NextJsApiExportTabProps) {
+  const fieldCount = unifiedFields.length;
   
   const code = fieldCount === 0
     ? '// No fields to export. Add some fields to your PDF first.'
-    : useUnified
-      ? generateUnifiedNextJsApiRoute(unifiedFields)
-      : generateNextJsApiRoute(fields, logicFields);
+    : generateUnifiedNextJsApiRoute(unifiedFields);
 
   const handleDownload = () => {
     const blob = new Blob([code], { type: 'text/typescript' });
@@ -46,7 +38,7 @@ export function NextJsApiExportTab({ fields, logicFields, unifiedFields }: NextJ
         code={code}
         language="typescript"
         title="Next.js 15 API Route"
-        description={`Production-ready API route (${fieldCount} fields${useUnified ? '' : `, ${logicFields.length} logic fields`})`}
+        description={`Production-ready API route (${fieldCount} fields)`}
         onDownload={handleDownload}
         showDownload={true}
         buttonPosition="top"

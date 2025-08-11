@@ -1,5 +1,13 @@
 import type { Field, FieldType } from '@/types/field.types';
 
+// Sanitize key to remove spaces and special characters
+function sanitizeFieldKey(key: string): string {
+  return key
+    .toLowerCase()
+    .replace(/\s+/g, '_')  // Replace spaces with underscores
+    .replace(/[^a-z0-9_]/g, '');  // Remove all non-alphanumeric chars except underscore
+}
+
 interface ParsedColumn {
   name: string;
   type: string;
@@ -137,7 +145,7 @@ export function generateFieldsFromSQL(sql: string, startPosition = { x: 50, y: 5
     
     fields.push({
       type: fieldType,
-      key: column.name,
+      key: sanitizeFieldKey(column.name),
       displayName,
       name: column.name,
       page,

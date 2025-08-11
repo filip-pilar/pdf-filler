@@ -1,7 +1,9 @@
 import type { Field } from '@/types/field.types';
 import type { ExportConfig } from '@/types/export.types';
-import type { LogicField, LogicFieldExport } from '@/types/logicField.types';
 import type { UnifiedField, UnifiedFieldExport } from '@/types/unifiedField.types';
+// Legacy types - temporarily defined here
+type LogicField = any;
+type LogicFieldExport = any;
 
 interface ExportOptions {
   includeMetadata?: boolean;

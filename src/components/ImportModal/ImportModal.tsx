@@ -7,11 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SqlImporter } from './SqlImporter';
 import { JsonImporter } from './JsonImporter';
 import { TypeScriptImporter } from './TypeScriptImporter';
-import { FieldMappingDialog } from './FieldMappingDialog';
-import { useFieldStore } from '@/store/fieldStore';
 import type { Field } from '@/types/field.types';
 import { Database, FileJson, Code2, Import, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface ImportModalProps {
   open: boolean;
@@ -22,8 +19,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const navigate = useNavigate();
   const [generatedFields, setGeneratedFields] = useState<Partial<Field>[]>([]);
   const [activeTab, setActiveTab] = useState<string>('sql');
-  const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const { addField, useUnifiedFields } = useFieldStore();
   const [error, setError] = useState<string>('');
 
   const handleFieldsGenerated = (fields: Partial<Field>[]) => {
@@ -37,41 +32,17 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       return;
     }
 
-    if (useUnifiedFields) {
-      // Navigate to the full-page configuration
-      onOpenChange(false);
-      navigate('/import-config', { 
-        state: { 
-          fields: generatedFields,
-          fromPage: '/'
-        } 
-      });
-    } else {
-      // Use old dialog for legacy mode
-      onOpenChange(false);
-      setShowMappingDialog(true);
-    }
-  };
-
-  const handleConfirmMapping = (mappedFields: Partial<Field>[]) => {
-    // Add all mapped fields to the store
-    for (const field of mappedFields) {
-      addField({
-        ...field,
-        page: field.page || 1
-      } as Omit<Field, 'id'>);
-    }
-    
-    toast.success(`Successfully imported ${mappedFields.length} fields`);
-
-    // Reset and close
-    setGeneratedFields([]);
-    setError('');
-    setShowMappingDialog(false);
+    // Navigate to the full-page configuration
     onOpenChange(false);
+    navigate('/import-config', { 
+      state: { 
+        fields: generatedFields,
+        fromPage: '/'
+      } 
+    });
   };
-  
-  // This function is no longer used when useUnifiedFields is true
+
+  // Legacy mapping function - no longer used
   // as we navigate to the full page instead
 
   const handleCancel = () => {
@@ -165,15 +136,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       </DialogContent>
     </Dialog>
     
-    {/* Only show legacy dialog for non-unified fields mode */}
-    {!useUnifiedFields && (
-      <FieldMappingDialog
-        open={showMappingDialog}
-        onOpenChange={setShowMappingDialog}
-        fields={generatedFields}
-        onConfirm={handleConfirmMapping}
-      />
-    )}
     </>
   );
 }

@@ -18,7 +18,7 @@ type ExportFormat = 'json' | 'javascript' | 'nextjs' | 'pdf';
 export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
   const [activeFormat, setActiveFormat] = useState<ExportFormat>('json');
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const { fields, logicFields, unifiedFields, pdfFile, pdfUrl, useUnifiedFields } = useFieldStore();
+  const { unifiedFields, pdfFile, pdfUrl } = useFieldStore();
 
   // Track when dialog has been opened for lazy initialization
   useEffect(() => {
@@ -63,8 +63,6 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
                 <TabsContent value="json" className="space-y-4 mt-4" forceMount>
                   <div style={{ display: activeFormat === 'json' ? 'block' : 'none' }}>
                     <JsonExportTab 
-                      fields={fields}
-                      logicFields={logicFields}
                       pdfFileName={pdfFile?.name}
                       unifiedFields={unifiedFields}
                     />
@@ -74,8 +72,6 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
                 <TabsContent value="javascript" className="space-y-4 mt-4" forceMount>
                   <div style={{ display: activeFormat === 'javascript' ? 'block' : 'none' }}>
                     <JavaScriptExportTab 
-                      fields={fields} 
-                      logicFields={logicFields}
                       unifiedFields={unifiedFields}
                     />
                   </div>
@@ -84,8 +80,6 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
                 <TabsContent value="nextjs" className="space-y-4 mt-4" forceMount>
                   <div style={{ display: activeFormat === 'nextjs' ? 'block' : 'none' }}>
                     <NextJsApiExportTab 
-                      fields={fields}
-                      logicFields={logicFields}
                       pdfFileName={pdfFile?.name}
                       unifiedFields={unifiedFields}
                     />
@@ -94,9 +88,7 @@ export function ExportDialog({ open, onOpenChange }: ExportModalProps) {
 
                 <TabsContent value="pdf" className="space-y-4 mt-4" forceMount>
                   <div style={{ display: activeFormat === 'pdf' ? 'block' : 'none' }}>
-                    <PdfExportTab 
-                      fields={fields}
-                      logicFields={logicFields}
+                    <PdfExportTab
                       pdfUrl={pdfUrl}
                       pdfFileName={pdfFile?.name}
                       unifiedFields={unifiedFields}

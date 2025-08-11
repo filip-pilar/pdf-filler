@@ -2,23 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileDown, Download, Eye } from 'lucide-react';
 import { exportUnifiedPDF, downloadPDF } from '@/exporters/unifiedPdfExporter';
-import { exportFilledPDF } from '@/exporters/pdfExporter';
-import type { Field } from '@/types/field.types';
-import type { LogicField } from '@/types/logicField.types';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { toast } from 'sonner';
 
 interface PdfExportTabProps {
-  fields: Field[];
-  logicFields?: LogicField[];
   pdfUrl: string | null;
   pdfFileName?: string;
   unifiedFields?: UnifiedField[];
 }
 
-export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName, unifiedFields }: PdfExportTabProps) {
-  const useUnified = unifiedFields && unifiedFields.length > 0;
-  const fieldCount = useUnified ? unifiedFields.length : fields.length;
+export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExportTabProps) {
+  const fieldCount = unifiedFields.length;
   const [exporting, setExporting] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
@@ -37,7 +31,7 @@ export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName, un
   const generateSampleValues = () => {
     const values: Record<string, any> = {};
     
-    if (useUnified && unifiedFields) {
+    if (unifiedFields) {
       for (const field of unifiedFields) {
         if (!field.enabled) continue;
         
@@ -138,20 +132,11 @@ export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName, un
       
       let filledPdfBytes: Uint8Array;
       
-      if (useUnified && unifiedFields) {
-        // Use unified exporter
-        filledPdfBytes = await exportUnifiedPDF(pdfBytes, {
-          fields: unifiedFields,
-          fieldValues: sampleValues
-        });
-      } else {
-        // Use legacy exporter
-        filledPdfBytes = await exportFilledPDF(pdfBytes, {
-          fields,
-          logicFields,
-          fieldValues: sampleValues
-        });
-      }
+      // Use unified exporter
+      filledPdfBytes = await exportUnifiedPDF(pdfBytes, {
+        fields: unifiedFields,
+        fieldValues: sampleValues
+      });
       
       // Download the preview PDF
       const filename = pdfFileName ? `preview-${pdfFileName}` : 'preview-form.pdf';
