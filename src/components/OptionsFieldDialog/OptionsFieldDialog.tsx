@@ -27,7 +27,6 @@ import {
   List,
   Check
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { sanitizeFieldKey, isValidFieldKey } from '@/lib/keyValidation';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +94,10 @@ export function OptionsFieldDialog({
   
   // Ref for options list scroll container
   const optionsListRef = useRef<HTMLDivElement>(null);
+  
+  // Validation errors
+  const [fieldKeyError, setFieldKeyError] = useState('');
+  const [optionKeyError, setOptionKeyError] = useState('');
 
   // Generate simple field key for new fields
   const generateFieldKey = () => {
@@ -126,8 +129,7 @@ export function OptionsFieldDialog({
       const allPlaced = placementStateRef.optionMappings.every(m => m.placed);
       if (allPlaced) {
         // Don't auto-save - field is already created and updated during placement
-        // Just show success message
-        toast.success('All options placed successfully! You can now close the dialog.');
+        // Options are ready to save
       }
       
       // Clear the state
@@ -235,11 +237,14 @@ export function OptionsFieldDialog({
 
   const handleAddOption = () => {
     const cleaned = newOptionKey.trim();
-    if (!cleaned) return;
+    if (!cleaned) {
+      setOptionKeyError('Option key is required');
+      return;
+    }
     
     // Check for duplicates
     if (optionMappings.some(m => m.key === cleaned)) {
-      toast.error('Option already exists');
+      setOptionKeyError('This option already exists');
       return;
     }
     
@@ -248,14 +253,15 @@ export function OptionsFieldDialog({
       placed: false
     }]);
     setNewOptionKey('');
+    setOptionKeyError('');
     
     // Auto-scroll to show the new option
-    setTimeout(() => {
-      const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    requestAnimationFrame(() => {
+      const scrollViewport = optionsListRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
-    }, 100);
+    });
   };
 
   const handleRemoveOption = (key: string) => {
@@ -292,7 +298,6 @@ export function OptionsFieldDialog({
     setIsPlacingOptions(true);
     setCurrentPlacingIndex(optionIndex);
     
-    toast.info(`Click to reposition option: ${option.key}`);
     startPicking({
       actionId: `reposition-${option.key}`,
       content: renderType === 'checkmark' ? '✓' : (renderType === 'custom' ? option.customText || option.key : option.key),
@@ -301,7 +306,6 @@ export function OptionsFieldDialog({
       onComplete: () => {},
       onCancel: () => {
         setIsPlacingOptions(false);
-        toast.error('Repositioning cancelled');
         onOpenChange(true);
       }
     });
@@ -337,7 +341,6 @@ export function OptionsFieldDialog({
       // Create new field immediately
       const newField = addUnifiedField(initialFieldData);
       fieldId = newField.id;
-      toast.success('Options field created - now place the options');
     } else {
       // Update existing field
       updateUnifiedField(fieldId, initialFieldData);
@@ -362,7 +365,6 @@ export function OptionsFieldDialog({
     setIsPlacingOptions(true);
     
     if (placementMode === 'combined') {
-      toast.info('Click on the PDF to place all options at one position');
       startPicking({
         actionId: 'options-field-combined',
         content: `All ${optionMappings.length} options`,
@@ -371,14 +373,12 @@ export function OptionsFieldDialog({
         onComplete: () => {},
         onCancel: () => {
           setIsPlacingOptions(false);
-          toast.error('Placement cancelled');
           onOpenChange(true);
         }
       });
     } else {
       setCurrentPlacingIndex(0);
       const firstOption = optionMappings[0];
-      toast.info(`Click to place option 1 of ${optionMappings.length}: ${firstOption.key}`);
       startPicking({
         actionId: `options-field-${firstOption.key}`,
         content: renderType === 'checkmark' ? '✓' : firstOption.key,
@@ -387,7 +387,6 @@ export function OptionsFieldDialog({
         onComplete: () => {},
         onCancel: () => {
           setIsPlacingOptions(false);
-          toast.error('Placement cancelled');
           onOpenChange(true);
         }
       });
@@ -424,7 +423,6 @@ export function OptionsFieldDialog({
       }
       
       setIsPlacingOptions(false);
-      toast.success('All options placed!');
       
       // Reopen dialog
       setTimeout(() => {
@@ -454,7 +452,6 @@ export function OptionsFieldDialog({
           }))
         };
         updateUnifiedField(placementStateRef.editingFieldId, updatedFieldData);
-        toast.success(`Option "${placementStateRef.optionMappings[currentIndex].key}" placed`);
       }
       
       // Check if this was a repositioning action (not part of initial placement)
@@ -464,7 +461,6 @@ export function OptionsFieldDialog({
         // Single reposition done, go back to dialog
         setIsPlacingOptions(false);
         setCurrentPlacingIndex(-1);
-        toast.success(`Option "${placementStateRef.optionMappings[currentIndex].key}" repositioned!`);
         
         // Reopen dialog
         setTimeout(() => {
@@ -486,7 +482,6 @@ export function OptionsFieldDialog({
             const nextOption = placementStateRef.optionMappings[nextUnplacedIndex];
             const totalOptions = placementStateRef.optionMappings.length;
             const unplacedCount = placementStateRef.optionMappings.filter(m => !m.placed).length;
-            toast.info(`Click to place option: ${nextOption.key} (${unplacedCount} remaining)`);
             
             // Need to restart picking for the next option
             setTimeout(() => {
@@ -498,7 +493,6 @@ export function OptionsFieldDialog({
                 onComplete: () => {},
                 onCancel: () => {
                   setIsPlacingOptions(false);
-                  toast.error('Placement cancelled');
                   onOpenChange(true);
                 }
               });
@@ -507,7 +501,6 @@ export function OptionsFieldDialog({
             // All done
             setIsPlacingOptions(false);
             setCurrentPlacingIndex(-1);
-            toast.success('All options placed successfully!');
             
             // Reopen dialog
             setTimeout(() => {
@@ -518,7 +511,6 @@ export function OptionsFieldDialog({
           // All done
           setIsPlacingOptions(false);
           setCurrentPlacingIndex(-1);
-          toast.success('All options placed successfully!');
           
           // Reopen dialog
           setTimeout(() => {
@@ -530,20 +522,30 @@ export function OptionsFieldDialog({
   };
 
   const handleSave = () => {
+    // Clear previous errors
+    setFieldKeyError('');
+    setOptionKeyError('');
+    
+    // Validate field key
     if (!fieldKey.trim()) {
-      toast.error('Field key is required');
+      setFieldKeyError('Field key is required');
+      return;
+    }
+    
+    if (!isValidFieldKey(fieldKey)) {
+      setFieldKeyError('Invalid field key format');
       return;
     }
     
     if (optionMappings.length === 0) {
-      toast.error('At least one option is required');
+      setOptionKeyError('At least one option is required');
       return;
     }
     
     // Check if all options have been placed
     const unplacedOptions = optionMappings.filter(m => !m.placed);
     if (unplacedOptions.length > 0) {
-      toast.error('Please place all options on the PDF first');
+      setOptionKeyError(`Please place all options on the PDF first (${unplacedOptions.length} remaining)`);
       return;
     }
     
@@ -575,7 +577,6 @@ export function OptionsFieldDialog({
       };
       
       updateUnifiedField(placementStateRef.editingFieldId, fieldData);
-      toast.success('Options field saved successfully');
     } else if (editingFieldId) {
       // Update existing field (editing mode)
       const fieldData = {
@@ -602,7 +603,6 @@ export function OptionsFieldDialog({
       };
       
       updateUnifiedField(editingFieldId, fieldData);
-      toast.success('Options field updated');
     } else {
       // Create new field (shouldn't normally reach here if placement worked)
       const fieldData = {
@@ -629,7 +629,6 @@ export function OptionsFieldDialog({
       };
       
       addUnifiedField(fieldData);
-      toast.success('Options field created');
     }
     
     onOpenChange(false);
@@ -688,20 +687,22 @@ export function OptionsFieldDialog({
                 onChange={(e) => {
                   const sanitized = sanitizeFieldKey(e.target.value);
                   setFieldKey(sanitized);
+                  setFieldKeyError('');
                 }}
                 onBlur={() => {
-                  // Ensure key follows pattern on blur
+                  // Validate key on blur
                   if (fieldKey && !isValidFieldKey(fieldKey)) {
-                    const sanitized = sanitizeFieldKey(fieldKey);
-                    setFieldKey(sanitized);
-                    if (!sanitized) {
-                      toast.error('Invalid field key. Must start with a letter and contain only letters, numbers, underscores, and hyphens.');
-                    }
+                    setFieldKeyError('Invalid format. Use only letters, numbers, underscores, and hyphens.');
+                  } else {
+                    setFieldKeyError('');
                   }
                 }}
                 placeholder="e.g., options_1"
-                className="font-mono"
+                className={cn("font-mono", fieldKeyError && "border-destructive")}
               />
+              {fieldKeyError && (
+                <p className="text-xs text-destructive mt-1">{fieldKeyError}</p>
+              )}
             </div>
 
             <Separator />
@@ -782,27 +783,34 @@ export function OptionsFieldDialog({
             {/* Step 4: Option Keys */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Options</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="new-option-key"
-                  value={newOptionKey}
-                  onChange={(e) => setNewOptionKey(e.target.value)}
-                  placeholder="e.g., male, approved, yes"
-                  className="w-1/2"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddOption();
-                    }
-                  }}
-                />
-                <Button 
-                  onClick={handleAddOption}
-                  disabled={!newOptionKey.trim()}
-                  className="w-1/2"
-                >
-                  Add Option
-                </Button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    id="new-option-key"
+                    value={newOptionKey}
+                    onChange={(e) => {
+                      setNewOptionKey(e.target.value);
+                      setOptionKeyError('');
+                    }}
+                    placeholder="e.g., male, approved, yes"
+                    className={cn("flex-1", optionKeyError && "border-destructive")}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                  />
+                  <Button 
+                    onClick={handleAddOption}
+                    disabled={!newOptionKey.trim()}
+                  >
+                    Add Option
+                  </Button>
+                </div>
+                {optionKeyError && (
+                  <p className="text-xs text-destructive">{optionKeyError}</p>
+                )}
               </div>
               
               {optionMappings.length > 0 && (
@@ -871,7 +879,6 @@ export function OptionsFieldDialog({
                   onClick={() => {
                     if (confirm('Are you sure you want to delete this options field?')) {
                       deleteUnifiedField(editingFieldId);
-                      toast.success('Options field deleted');
                       onOpenChange(false);
                       resetDialog();
                     }

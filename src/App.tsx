@@ -10,7 +10,6 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { Separator } from '@/components/ui/separator';
 import { Toolbar } from '@/components/Toolbar/Toolbar';
 import { StatusBar } from '@/components/StatusBar/StatusBar';
-import { Toaster } from '@/components/ui/sonner';
 
 function App() {
   const { pdfFile } = useFieldStore();
@@ -50,7 +49,6 @@ function App() {
         </SidebarInset>
       </SidebarProvider>
       <StatusBar />
-      <Toaster position="top-right" />
     </DndProvider>
   );
 }

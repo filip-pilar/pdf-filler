@@ -8,7 +8,6 @@ import { SignaturePad } from '@/components/SignaturePad/SignaturePad';
 import { ImageUpload } from '@/components/ImageUpload/ImageUpload';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
-import { toast } from 'sonner';
 import { sanitizeFieldKey, isValidFieldKey } from '@/lib/keyValidation';
 
 interface FieldConfigDialogProps {
@@ -31,6 +30,7 @@ export function FieldConfigDialog({
   const [fieldKey, setFieldKey] = useState('');
   const [sampleValue, setSampleValue] = useState<any>('');
   const [checkboxValue, setCheckboxValue] = useState(false);
+  const [fieldKeyError, setFieldKeyError] = useState('');
   
   // Initialize form when field changes
   useEffect(() => {
@@ -71,9 +71,11 @@ export function FieldConfigDialog({
       .replace(/-+$/, '');
     
     if (!cleanedKey) {
-      toast.error('Please enter a valid field key');
+      setFieldKeyError('Please enter a valid field key');
       return;
     }
+    
+    setFieldKeyError('');
     
     // Prepare sample value based on field type
     let finalSampleValue: any = undefined;
@@ -134,22 +136,27 @@ export function FieldConfigDialog({
               onChange={(e) => {
                 const sanitized = sanitizeFieldKey(e.target.value);
                 setFieldKey(sanitized);
+                setFieldKeyError('');
               }}
               onBlur={() => {
                 if (fieldKey && !isValidFieldKey(fieldKey)) {
-                  const sanitized = sanitizeFieldKey(fieldKey);
-                  setFieldKey(sanitized);
-                  if (!sanitized) {
-                    toast.error('Invalid field key format');
-                  }
+                  setFieldKeyError('Invalid field key format');
+                } else {
+                  setFieldKeyError('');
                 }
               }}
               placeholder={`e.g., ${field.type}_1`}
               autoFocus
+              className={fieldKeyError ? 'border-destructive' : ''}
             />
-            <p className="text-xs text-muted-foreground">
-              This key will be used to bind data to the field
-            </p>
+            {fieldKeyError && (
+              <p className="text-xs text-destructive">{fieldKeyError}</p>
+            )}
+            {!fieldKeyError && (
+              <p className="text-xs text-muted-foreground">
+                This key will be used to bind data to the field
+              </p>
+            )}
           </div>
           
           {/* Field type-specific inputs */}
