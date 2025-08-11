@@ -255,10 +255,22 @@ export function OptionsFieldDialog({
       return;
     }
     
-    setOptionMappings([...optionMappings, { 
+    // Create new option with defaults based on render type
+    const newOption: OptionMapping = {
       key: cleaned,
       placed: false
-    }]);
+    };
+    
+    // Add default values based on display type
+    if (renderType === 'text') {
+      // For option value display, provide a sample value
+      newOption.sampleValue = 'Sample'; // Simple default placeholder
+    } else if (renderType === 'custom') {
+      // For custom text, provide a simple default
+      newOption.customText = 'X'; // Simple default placeholder
+    }
+    
+    setOptionMappings([...optionMappings, newOption]);
     setNewOptionKey('');
     setOptionKeyError('');
     
@@ -730,7 +742,25 @@ export function OptionsFieldDialog({
               <Label className="text-sm font-medium">Display Type</Label>
               <RadioGroup 
                 value={renderType} 
-                onValueChange={(v) => setRenderType(v as OptionRenderType)}
+                onValueChange={(v) => {
+                  const newRenderType = v as OptionRenderType;
+                  setRenderType(newRenderType);
+                  
+                  // Update existing options with default values if they don't have them
+                  if (newRenderType === 'text') {
+                    // Ensure all options have sample values
+                    setOptionMappings(optionMappings.map(m => ({
+                      ...m,
+                      sampleValue: m.sampleValue || 'Sample' // Simple default
+                    })));
+                  } else if (newRenderType === 'custom') {
+                    // Ensure all options have custom text
+                    setOptionMappings(optionMappings.map(m => ({
+                      ...m,
+                      customText: m.customText || 'X' // Simple default
+                    })));
+                  }
+                }}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2">
