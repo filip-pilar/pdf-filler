@@ -4,7 +4,7 @@ import type { LogicField, FieldOption, FieldAction } from '../types/logicField.t
 import type { BooleanField, BooleanFieldAction } from '../types/booleanField.types';
 import type { UnifiedField, FieldMigrationResult } from '../types/unifiedField.types';
 
-export type GridSize = 5 | 10 | 25;
+export type GridSize = 10 | 25 | 50 | 100;
 
 interface FieldState {
   // Feature flag for unified fields
@@ -700,7 +700,16 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     const id = `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const fieldType = fieldData.type || 'text';
     const existingFields = get().unifiedFields;
-    const generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
+    
+    // Generate unique key with collision detection
+    let generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
+    const existingKeys = new Set(existingFields.map(f => f.key));
+    let keyAttempts = 0;
+    while (existingKeys.has(generatedKey) && keyAttempts < 100) {
+      // Add random suffix if collision detected
+      generatedKey = `${fieldType}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      keyAttempts++;
+    }
     
     // Set default sample value based on field type
     const defaultSampleValue = (() => {
@@ -714,21 +723,41 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       }
     })();
     
+    // Set default properties based on field type
+    const defaultProperties = {
+      fontSize: fieldType === 'text' ? 12 : undefined,
+      checkboxSize: fieldType === 'checkbox' ? 20 : undefined,
+      fitMode: (fieldType === 'image' || fieldType === 'signature') ? 'fit' as const : undefined,
+      textAlign: 'left' as const,
+    };
+    
+    // Properly merge field data with defaults
+    // First spread fieldData (excluding properties), then override with our defaults
+    const { properties: userProperties, ...fieldDataWithoutProperties } = fieldData;
+    
     const newField: UnifiedField = {
+      // 1. First apply user data (except properties)
+      ...fieldDataWithoutProperties,
+      // 2. Then set required fields with proper defaults
       id,
       key: fieldData.key || generatedKey,
       type: fieldType,
-      variant: 'single',
-      page: 1,
-      position: { x: 100, y: 100 },
-      size: getDefaultFieldSize(fieldType),
-      enabled: true,
-      structure: 'simple',
-      placementCount: 1,
-      positionVersion: 'top-edge', // New fields use top-edge positioning
+      variant: fieldData.variant || 'single',
+      page: fieldData.page || 1,
+      position: fieldData.position || { x: 100, y: 100 },
+      size: fieldData.size || getDefaultFieldSize(fieldType),
+      enabled: fieldData.enabled !== false, // Default true unless explicitly false
+      structure: fieldData.structure || 'simple',
+      placementCount: fieldData.placementCount || 1,
+      positionVersion: fieldData.positionVersion || 'top-edge',
       sampleValue: defaultSampleValue,
-      ...fieldData
+      // 3. Deep merge properties - defaults first, then user overrides
+      properties: {
+        ...defaultProperties,
+        ...userProperties
+      }
     };
+    
     set((state) => ({
       unifiedFields: [...state.unifiedFields, newField]
     }));
@@ -737,9 +766,25 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   updateUnifiedField: (id, updates) => {
     set((state) => ({
-      unifiedFields: state.unifiedFields.map(f => 
-        f.id === id ? { ...f, ...updates } : f
-      )
+      unifiedFields: state.unifiedFields.map(f => {
+        if (f.id !== id) return f;
+        
+        // Handle properties updates specially - deep merge
+        if (updates.properties) {
+          const { properties: updateProperties, ...otherUpdates } = updates;
+          return {
+            ...f,
+            ...otherUpdates,
+            properties: {
+              ...f.properties,
+              ...updateProperties
+            }
+          };
+        }
+        
+        // No properties update, simple merge
+        return { ...f, ...updates };
+      })
     }));
   },
   

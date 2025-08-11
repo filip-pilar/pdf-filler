@@ -31,21 +31,26 @@ const DEFAULT_JSON = `{
 }`;
 
 export function JsonImporter({ onFieldsGenerated }: JsonImporterProps) {
-  const [json, setJson] = useState(DEFAULT_JSON);
+  const [json, setJson] = useState('');
   const [isValid, setIsValid] = useState(true);
 
   useEffect(() => {
     // Generate fields whenever JSON changes
     const timeoutId = setTimeout(() => {
-      try {
-        // Validate JSON first
-        JSON.parse(json);
+      if (json.trim() === '') {
         setIsValid(true);
-        const fields = generateFieldsFromJSON(json);
-        onFieldsGenerated(fields);
-      } catch {
-        setIsValid(false);
         onFieldsGenerated([]);
+      } else {
+        try {
+          // Validate JSON first
+          JSON.parse(json);
+          setIsValid(true);
+          const fields = generateFieldsFromJSON(json);
+          onFieldsGenerated(fields);
+        } catch {
+          setIsValid(false);
+          onFieldsGenerated([]);
+        }
       }
     }, 500); // Debounce for 500ms
 
@@ -56,13 +61,23 @@ export function JsonImporter({ onFieldsGenerated }: JsonImporterProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <FileJson className="h-4 w-4" />
-            JSON Data
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Paste JSON data or schema to generate fields
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileJson className="h-4 w-4" />
+                JSON Data
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Paste JSON data or schema to generate fields
+              </CardDescription>
+            </div>
+            <button
+              onClick={() => setJson(DEFAULT_JSON)}
+              className="text-xs px-2 py-1 rounded bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              Use Example Data
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className={`border rounded-lg overflow-hidden ${!isValid ? 'border-destructive' : ''}`}>

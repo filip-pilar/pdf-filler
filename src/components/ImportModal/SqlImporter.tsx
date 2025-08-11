@@ -23,7 +23,7 @@ const DEFAULT_SQL = `CREATE TABLE users (
 );`;
 
 export function SqlImporter({ onFieldsGenerated }: SqlImporterProps) {
-  const [sql, setSql] = useState(DEFAULT_SQL);
+  const [sql, setSql] = useState('');
 
   useEffect(() => {
     // Generate fields whenever SQL changes
@@ -44,13 +44,23 @@ export function SqlImporter({ onFieldsGenerated }: SqlImporterProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            SQL Schema
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Paste your CREATE TABLE statement to generate fields
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                SQL Schema
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Paste your CREATE TABLE statement to generate fields
+              </CardDescription>
+            </div>
+            <button
+              onClick={() => setSql(DEFAULT_SQL)}
+              className="text-xs px-2 py-1 rounded bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              Use Example Data
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">

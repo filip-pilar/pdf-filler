@@ -154,6 +154,7 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onFitToWidth={handleFitToWidth}
+          onZoomChange={setScale}
         />
         
         <div 
@@ -197,7 +198,7 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                 className="absolute inset-0"
               >
                 <GridOverlay
-                  show={showGrid}
+                  show={gridEnabled}
                   enabled={gridEnabled}
                   pageWidth={pageSize.width}
                   pageHeight={pageSize.height}
@@ -255,10 +256,10 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                       const centeredScreenX = screenX - (fieldSize.width / 2);
                       const centeredScreenY = screenY - (fieldSize.height / 2);
                       
-                      // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
-                      // Now storing Y as distance from PDF bottom to field's TOP edge
+                      // For top-edge positioning: Y=0 is at TOP of page
+                      // No inversion needed - use screen coordinates directly
                       const pdfX = centeredScreenX;
-                      const pdfY = naturalPageSize.height - centeredScreenY; // Top edge position
+                      const pdfY = centeredScreenY; // Direct mapping for top-edge positioning
                       
                       // Apply grid snapping if enabled
                       const finalPosition = gridEnabled 

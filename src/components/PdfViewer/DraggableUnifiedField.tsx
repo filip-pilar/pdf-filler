@@ -105,9 +105,12 @@ export function DraggableUnifiedField({
     });
   };
 
-  // Convert PDF coordinates (bottom-left origin) to screen coordinates (top-left origin)
-  // Now field.position.y stores distance from PDF bottom to field's TOP edge
-  const screenY = pageHeight - field.position.y;
+  // Handle coordinate system based on positionVersion
+  // 'top-edge': y=0 is at top of PDF (no conversion needed)
+  // Legacy/undefined: y=0 is at bottom of PDF (needs conversion)
+  const screenY = field.positionVersion === 'top-edge' 
+    ? field.position.y 
+    : pageHeight - field.position.y;
 
   // Get appropriate icon for field type/variant
   const getFieldIcon = () => {
@@ -160,9 +163,20 @@ export function DraggableUnifiedField({
   const isSignature = field.type === 'signature';
   const hasImageData = (isImage || isSignature) && field.sampleValue && typeof field.sampleValue === 'string' && field.sampleValue.startsWith('data:');
   
-  // Get field dimensions
-  const fieldWidth = field.size?.width || 200;
-  const fieldHeight = field.size?.height || 30;
+  // Get field dimensions with proper defaults based on type
+  const getDefaultSize = () => {
+    switch (field.type) {
+      case 'text': return { width: 120, height: 32 };
+      case 'checkbox': return { width: 20, height: 20 };
+      case 'image': return { width: 100, height: 100 };
+      case 'signature': return { width: 200, height: 60 };
+      default: return { width: 120, height: 32 };
+    }
+  };
+  
+  const defaultSize = getDefaultSize();
+  const fieldWidth = field.size?.width || defaultSize.width;
+  const fieldHeight = field.size?.height || defaultSize.height;
   
   // Handle drag stop - update position in store
   const handleDragStop = (_e: any, data: { x: number; y: number }) => {
@@ -171,7 +185,11 @@ export function DraggableUnifiedField({
     // Convert scaled screen coordinates back to PDF coordinates
     const newX = data.x / scale;
     const newScreenY = data.y / scale;
-    const newPdfY = pageHeight - newScreenY;
+    
+    // Handle coordinate system based on positionVersion
+    const newPdfY = field.positionVersion === 'top-edge'
+      ? newScreenY  // For top-edge, screen Y is same as PDF Y
+      : pageHeight - newScreenY;  // For legacy, convert from screen to PDF bottom-origin
     
     // Apply grid snapping
     const snapped = isEnabled 
@@ -231,10 +249,12 @@ export function DraggableUnifiedField({
   // Determine if field should be resizable
   const isResizable = !isCheckbox && !isPreview && !optionKey;
 
-  // Enhanced content rendering function
+  // Enhanced content rendering function with defensive defaults
   const renderFieldContent = () => {
     const value = field.sampleValue || '';
-    const fontSize = field.properties?.fontSize || 14;
+    // Defensive defaults for fontSize based on field type
+    const defaultFontSize = field.type === 'text' ? 12 : 14;
+    const fontSize = field.properties?.fontSize || defaultFontSize;
     
     // For options fields, check the renderType first
     if (renderType) {
@@ -257,7 +277,12 @@ export function DraggableUnifiedField({
               className="px-1 text-gray-700 overflow-hidden flex items-center h-full"
               style={{ fontSize: `${fontSize}px` }}
             >
-              <span className="truncate">{value || optionKey || 'Option'}</span>
+              <span className={cn(
+                "truncate",
+                value || optionKey ? "text-gray-700" : "text-gray-400 italic"
+              )}>
+                {value || optionKey || field.key}
+              </span>
             </div>
           );
       }
@@ -304,7 +329,7 @@ export function DraggableUnifiedField({
             ) : (
               <div className="text-xs text-gray-400 text-center p-2">
                 <Image className="h-6 w-6 mx-auto mb-1" />
-                Your image here
+                <span className="italic">{field.key}</span>
               </div>
             )}
           </div>
@@ -335,7 +360,7 @@ export function DraggableUnifiedField({
             ) : (
               <div className="text-xs text-gray-400 text-center p-2">
                 <PenTool className="h-6 w-6 mx-auto mb-1" />
-                Your signature here
+                <span className="italic">{field.key}</span>
               </div>
             )}
           </div>
@@ -345,15 +370,23 @@ export function DraggableUnifiedField({
       default:
         return (
           <div 
-            className="px-1 text-gray-700 overflow-hidden flex items-center h-full"
+            className="px-1 overflow-hidden flex items-center h-full"
             style={{ fontSize: `${fontSize}px` }}
           >
-            <span className="truncate">{value || displayValue || 'Your text here'}</span>
+            <span className={cn(
+              "truncate",
+              value || displayValue ? "text-gray-700" : "text-gray-400 italic"
+            )}>
+              {value || displayValue || field.key}
+            </span>
           </div>
         );
     }
   };
 
+  // Check if field has a value
+  const hasValue = field.sampleValue || displayValue || (renderType === 'checkmark');
+  
   const fieldContent = (
     <div
       className={cn(
@@ -363,7 +396,9 @@ export function DraggableUnifiedField({
           ? "border-primary bg-primary/5 shadow-lg z-20"
           : isEmptyCheckbox 
             ? "border-border/30 bg-transparent"
-            : "border-border/50 bg-background/20",
+            : hasValue
+              ? "border-border/50 bg-background/20"
+              : "border-border bg-background/40", // Slightly more visible for empty fields
         isPreview && "border-dashed opacity-60",
         field.variant === 'options' && !isPreview && "border-dotted",
         isDragging && "opacity-50 cursor-grabbing",

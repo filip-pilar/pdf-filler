@@ -74,11 +74,10 @@ export function PdfDropTarget({
       const centeredScreenX = screenX - (fieldSize.width / 2);
       const centeredScreenY = screenY - (fieldSize.height / 2);
 
-      // Convert screen coordinates to PDF coordinates (Y-axis is inverted) 
-      // Store Y as distance from PDF bottom to field's TOP edge
-      // NOTE: pageHeight here should be the NATURAL page height, not scaled
+      // For top-edge positioning: Y=0 is at TOP of page, no inversion needed!
+      // The screen coordinates are already in the correct orientation
       const pdfX = centeredScreenX;
-      const pdfY = pageHeight - centeredScreenY; // Top edge position
+      const pdfY = centeredScreenY; // Direct mapping for top-edge positioning
 
       // Apply grid snapping if enabled
       const finalPosition = gridEnabled 
@@ -86,6 +85,7 @@ export function PdfDropTarget({
         : { x: pdfX, y: pdfY };
 
       // Ensure the field stays within bounds
+      // For top-edge: Y=0 is top, so max Y is pageHeight - fieldHeight
       const boundedPosition = {
         x: Math.max(0, Math.min(finalPosition.x, pageWidth - fieldSize.width)),
         y: Math.max(0, Math.min(finalPosition.y, pageHeight - fieldSize.height))

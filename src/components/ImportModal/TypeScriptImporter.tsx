@@ -28,12 +28,17 @@ const DEFAULT_TYPESCRIPT = `interface UserProfile {
 }`;
 
 export function TypeScriptImporter({ onFieldsGenerated }: TypeScriptImporterProps) {
-  const [typescript, setTypescript] = useState(DEFAULT_TYPESCRIPT);
+  const [typescript, setTypescript] = useState('');
   const [parseError, setParseError] = useState<{ error: string; suggestion: string } | null>(null);
 
   useEffect(() => {
     // Generate fields whenever TypeScript changes
     const timeoutId = setTimeout(() => {
+      if (typescript.trim() === '') {
+        onFieldsGenerated([]);
+        setParseError(null);
+        return;
+      }
       const result = generateFieldsFromTypeScript(typescript);
       
       if (result.success && result.fields) {
@@ -55,13 +60,23 @@ export function TypeScriptImporter({ onFieldsGenerated }: TypeScriptImporterProp
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Code2 className="h-4 w-4" />
-            TypeScript Interface
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Paste your TypeScript interface or type definition
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Code2 className="h-4 w-4" />
+                TypeScript Interface
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Paste your TypeScript interface or type definition
+              </CardDescription>
+            </div>
+            <button
+              onClick={() => setTypescript(DEFAULT_TYPESCRIPT)}
+              className="text-xs px-2 py-1 rounded bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              Use Example Data
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">

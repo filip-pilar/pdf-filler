@@ -132,7 +132,7 @@ export function PositionPickerOverlay({ onPositionClick, pageWidth, pageHeight, 
       </Card>
 
       {/* Grid overlay pattern - show if grid is enabled */}
-      {gridEnabled && showGrid && (
+      {gridEnabled && (
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{

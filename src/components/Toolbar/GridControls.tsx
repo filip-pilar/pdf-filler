@@ -14,18 +14,19 @@ export function GridControls() {
   const { 
     gridEnabled: enabled, 
     gridSize: size, 
-    showGrid, 
     setGridSize: setSize, 
-    setShowGrid, 
-    setGridEnabled
+    setGridEnabled,
+    setShowGrid
   } = useFieldStore();
 
   const handleGridOptionClick = (value: GridSize | 'off') => {
     if (value === 'off') {
       setGridEnabled(false);
+      setShowGrid(false);
     } else {
       setGridEnabled(true);
       setSize(value);
+      setShowGrid(true);
       // Note: Fields will snap to grid when user drags them, not automatically
     }
   };
@@ -58,15 +59,6 @@ export function GridControls() {
           No Grid
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => handleGridOptionClick(5)}
-          className={cn(
-            "cursor-pointer pl-3",
-            enabled && size === 5 && "bg-accent"
-          )}
-        >
-          5px Grid
-        </DropdownMenuItem>
-        <DropdownMenuItem
           onClick={() => handleGridOptionClick(10)}
           className={cn(
             "cursor-pointer pl-3",
@@ -84,16 +76,23 @@ export function GridControls() {
         >
           25px Grid
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => setShowGrid(!showGrid)}
-          className="cursor-pointer pl-3"
-          disabled={!enabled}
+          onClick={() => handleGridOptionClick(50)}
+          className={cn(
+            "cursor-pointer pl-3",
+            enabled && size === 50 && "bg-accent"
+          )}
         >
-          <div className="flex items-center justify-between w-full">
-            <span className={cn(!enabled && "text-muted-foreground")}>Show Grid Lines</span>
-            {showGrid && enabled && <span className="text-xs">✓</span>}
-          </div>
+          50px Grid
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleGridOptionClick(100)}
+          className={cn(
+            "cursor-pointer pl-3",
+            enabled && size === 100 && "bg-accent"
+          )}
+        >
+          100px Grid
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -18,17 +18,19 @@ import {
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { clearAll, fields, setPdfFile, setPdfUrl, pdfFile } = useFieldStore();
+  const { clearAll, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields } = useFieldStore();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showNewProjectAlert, setShowNewProjectAlert] = useState(false);
   const [showUploadAlert, setShowUploadAlert] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
+  const activeFieldsCount = useUnifiedFields ? unifiedFields.length : fields.length;
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === 'application/pdf') {
-      if (pdfFile && fields.length > 0) {
+      if (pdfFile && activeFieldsCount > 0) {
         setPendingFile(file);
         setShowUploadAlert(true);
       } else {
@@ -53,7 +55,7 @@ export function Toolbar() {
   };
 
   const handleNewProject = () => {
-    if (fields.length > 0) {
+    if (activeFieldsCount > 0) {
       setShowNewProjectAlert(true);
     } else {
       clearAll();
@@ -110,8 +112,8 @@ export function Toolbar() {
             variant="outline"
             size="sm"
             onClick={handleExport}
-            disabled={!pdfFile || fields.length === 0}
-            title={!pdfFile ? "Upload a PDF first" : fields.length === 0 ? "No fields to export" : "Export configuration"}
+            disabled={!pdfFile || activeFieldsCount === 0}
+            title={!pdfFile ? "Upload a PDF first" : activeFieldsCount === 0 ? "No fields to export" : "Export configuration"}
           >
             <FileJson className="h-4 w-4" />
             Export

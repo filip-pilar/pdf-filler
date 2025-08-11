@@ -11,27 +11,20 @@ export function useGridSnap(pageHeight?: number) {
   }, [enabled, size]);
   
   const snapY = useCallback((pdfY: number) => {
-    if (!enabled || !pageHeight) return pdfY;
+    if (!enabled) return pdfY;
     
-    // With Y now representing top edge, we can directly snap!
-    // Convert PDF Y (top edge) to screen Y for visual snapping
-    const screenY = pageHeight - pdfY;
-    
-    // Snap in screen coordinates (where the grid is visually drawn)
-    const snappedScreenY = Math.round(screenY / size) * size;
-    
-    // Convert back to PDF Y (still top edge)
-    return pageHeight - snappedScreenY;
-  }, [enabled, size, pageHeight]);
+    // For top-edge positioning, Y coordinates are already in screen space
+    // (Y=0 at top, increasing downward), so we can directly snap!
+    return Math.round(pdfY / size) * size;
+  }, [enabled, size]);
   
   const snapPosition = useCallback((position: { x: number; y: number }) => {
     if (!enabled) return position;
-    // fieldSize is no longer needed for Y snapping!
     return {
       x: snapX(position.x),
-      y: pageHeight ? snapY(position.y) : position.y,
+      y: snapY(position.y),
     };
-  }, [enabled, snapX, snapY, pageHeight]);
+  }, [enabled, snapX, snapY]);
   
   const snapSize = useCallback((dimensions: { width: number; height: number }) => {
     if (!enabled) return dimensions;

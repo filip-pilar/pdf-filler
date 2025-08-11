@@ -97,6 +97,58 @@ export interface UnifiedField {
     customText?: string;
   }>;
   
+  /**
+   * Field properties for styling and behavior
+   * Controls how the field is rendered in the PDF
+   */
+  properties?: {
+    /** Font size for text fields (default: 10) */
+    fontSize?: number;
+    /** Font family (default: Helvetica) */
+    fontFamily?: 'Helvetica' | 'Times' | 'Courier';
+    /** Text color in RGB (default: black [0,0,0]) */
+    textColor?: { r: number; g: number; b: number };
+    /** Text alignment */
+    textAlign?: 'left' | 'center' | 'right';
+    /** Bold text */
+    bold?: boolean;
+    /** Italic text */
+    italic?: boolean;
+    /** Checkbox size for checkbox fields */
+    checkboxSize?: number;
+    /** Image fit mode */
+    fitMode?: 'fit' | 'fill' | 'stretch';
+    /** Whether field is required */
+    required?: boolean;
+    /** Default value if no data provided */
+    defaultValue?: any;
+    /** Placeholder text */
+    placeholder?: string;
+    /** Validation rules */
+    validation?: unknown[];
+    /** Background color in RGB */
+    backgroundColor?: { r: number; g: number; b: number };
+    /** Border settings */
+    border?: {
+      width?: number;
+      color?: { r: number; g: number; b: number };
+      style?: 'solid' | 'dashed' | 'dotted';
+    };
+    /** Padding inside the field */
+    padding?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
+    /** Line height multiplier for multi-line text */
+    lineHeight?: number;
+    /** Maximum number of characters */
+    maxLength?: number;
+    /** Whether to auto-size text to fit the field */
+    autoSize?: boolean;
+  };
+  
   /** 
    * Source information for debugging and traceability
    * @deprecated Will be removed in final cleanup

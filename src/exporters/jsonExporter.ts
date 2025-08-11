@@ -55,7 +55,7 @@ export function exportToJSON(
 
   // If we have unified fields, use those instead
   if (unifiedFields && unifiedFields.length > 0) {
-    const unifiedExport: UnifiedFieldExport[] = unifiedFields
+    const unifiedExport = unifiedFields
       .filter(f => f.enabled)
       .map(field => ({
         key: field.key,
@@ -65,7 +65,12 @@ export function exportToJSON(
         position: field.position,
         size: field.size,
         placementCount: field.placementCount,
-        options: field.options
+        multiSelect: field.multiSelect,
+        renderType: field.renderType,
+        optionMappings: field.optionMappings,
+        properties: field.properties,
+        positionVersion: field.positionVersion,
+        sampleValue: field.sampleValue
       }));
     
     const config = {

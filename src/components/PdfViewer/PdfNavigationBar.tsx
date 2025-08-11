@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Move } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface PdfNavigationBarProps {
   currentPage: number;
@@ -10,6 +12,7 @@ interface PdfNavigationBarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitToWidth: () => void;
+  onZoomChange?: (scale: number) => void;
 }
 
 export function PdfNavigationBar({
@@ -19,8 +22,40 @@ export function PdfNavigationBar({
   onPageChange,
   onZoomIn,
   onZoomOut,
-  onFitToWidth
+  onFitToWidth,
+  onZoomChange
 }: PdfNavigationBarProps) {
+  const [zoomInput, setZoomInput] = useState(`${Math.round(scale * 100)}`);
+
+  useEffect(() => {
+    setZoomInput(`${Math.round(scale * 100)}`);
+  }, [scale]);
+
+  const handleZoomInputChange = (value: string) => {
+    // Allow only numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setZoomInput(numericValue);
+  };
+
+  const handleZoomInputSubmit = () => {
+    const zoomValue = parseInt(zoomInput, 10);
+    if (!isNaN(zoomValue) && zoomValue >= 25 && zoomValue <= 400) {
+      onZoomChange?.(zoomValue / 100);
+    } else {
+      // Reset to current scale if invalid
+      setZoomInput(`${Math.round(scale * 100)}`);
+    }
+  };
+
+  const handleZoomInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleZoomInputSubmit();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setZoomInput(`${Math.round(scale * 100)}`);
+      (e.target as HTMLInputElement).blur();
+    }
+  };
   return (
     <div className="flex items-center justify-center bg-background border-b py-2 px-4">
       <Card className="px-2 py-1">
@@ -61,9 +96,18 @@ export function PdfNavigationBar({
           <ZoomOut className="h-4 w-4" />
         </Button>
         
-        <span className="text-sm px-2 min-w-[60px] text-center">
-          {Math.round(scale * 100)}%
-        </span>
+        <div className="flex items-center">
+          <Input
+            type="text"
+            value={zoomInput}
+            onChange={(e) => handleZoomInputChange(e.target.value)}
+            onBlur={handleZoomInputSubmit}
+            onKeyDown={handleZoomInputKeyDown}
+            className="h-8 w-16 text-center text-sm border-0 focus-visible:ring-1 focus-visible:ring-offset-0"
+            title="Enter zoom percentage (25-400)"
+          />
+          <span className="text-sm">%</span>
+        </div>
         
         <Button
           variant="ghost"
@@ -73,18 +117,6 @@ export function PdfNavigationBar({
           title="Zoom In"
         >
           <ZoomIn className="h-4 w-4" />
-        </Button>
-        
-        <div className="w-px h-6 bg-border mx-1" />
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onFitToWidth}
-          className="h-8 w-8"
-          title="Fit to Width"
-        >
-          <Move className="h-4 w-4 rotate-90" />
         </Button>
         
         </div>

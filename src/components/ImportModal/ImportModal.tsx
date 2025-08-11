@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,6 @@ import { SqlImporter } from './SqlImporter';
 import { JsonImporter } from './JsonImporter';
 import { TypeScriptImporter } from './TypeScriptImporter';
 import { FieldMappingDialog } from './FieldMappingDialog';
-import { FieldMappingTable } from './FieldMappingTable';
 import { useFieldStore } from '@/store/fieldStore';
 import type { Field } from '@/types/field.types';
 import { Database, FileJson, Code2, Import, AlertCircle } from 'lucide-react';
@@ -19,10 +19,11 @@ interface ImportModalProps {
 }
 
 export function ImportModal({ open, onOpenChange }: ImportModalProps) {
+  const navigate = useNavigate();
   const [generatedFields, setGeneratedFields] = useState<Partial<Field>[]>([]);
   const [activeTab, setActiveTab] = useState<string>('sql');
   const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const { addField, useUnifiedFields, addUnifiedField, totalPages } = useFieldStore();
+  const { addField, useUnifiedFields } = useFieldStore();
   const [error, setError] = useState<string>('');
 
   const handleFieldsGenerated = (fields: Partial<Field>[]) => {
@@ -36,9 +37,20 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       return;
     }
 
-    // Close import modal and show mapping dialog
-    onOpenChange(false);
-    setShowMappingDialog(true);
+    if (useUnifiedFields) {
+      // Navigate to the full-page configuration
+      onOpenChange(false);
+      navigate('/import-config', { 
+        state: { 
+          fields: generatedFields,
+          fromPage: '/'
+        } 
+      });
+    } else {
+      // Use old dialog for legacy mode
+      onOpenChange(false);
+      setShowMappingDialog(true);
+    }
   };
 
   const handleConfirmMapping = (mappedFields: Partial<Field>[]) => {
@@ -59,50 +71,8 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     onOpenChange(false);
   };
   
-  const handleConfirmUnifiedMapping = (mappedFields: any[]) => {
-    // Process each mapped field from FieldMappingTable
-    mappedFields.forEach(mapping => {
-      // Handle auto-flattening for objects
-      if (mapping.fieldVariant === 'text-multi' && mapping.options) {
-        // Create separate fields for multi-placement
-        mapping.options.forEach((option: string, idx: number) => {
-          addUnifiedField({
-            key: `${mapping.key}_${option}`,
-            type: mapping.type,
-            variant: 'single',
-            page: mapping.page,
-            position: { x: 100 + (idx * 20), y: 100 + (idx * 20) },
-            enabled: true,
-            structure: 'simple',
-            placementCount: 1,
-            sampleValue: option
-          });
-        });
-      } else {
-        // Add single unified field
-        addUnifiedField({
-          key: mapping.key,
-          type: mapping.type,
-          variant: mapping.fieldVariant,
-          page: mapping.page,
-          position: { x: 100, y: 100 },
-          enabled: true,
-          structure: mapping.fieldVariant === 'text-list' ? 'array' : 'simple',
-          placementCount: mapping.placementCount,
-          options: mapping.options,
-          sampleValue: generatedFields.find(f => f.key === mapping.key)?.sampleValue
-        });
-      }
-    });
-    
-    toast.success(`Successfully imported ${mappedFields.length} unified fields`);
-    
-    // Reset and close
-    setGeneratedFields([]);
-    setError('');
-    setShowMappingDialog(false);
-    onOpenChange(false);
-  };
+  // This function is no longer used when useUnifiedFields is true
+  // as we navigate to the full page instead
 
   const handleCancel = () => {
     setGeneratedFields([]);
@@ -195,24 +165,8 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       </DialogContent>
     </Dialog>
     
-    {/* Use new FieldMappingTable for unified fields, old dialog for legacy */}
-    {useUnifiedFields ? (
-      <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>Configure Field Mappings</DialogTitle>
-            <DialogDescription>
-              Review and configure how your data fields will map to PDF form fields
-            </DialogDescription>
-          </DialogHeader>
-          <FieldMappingTable
-            fields={generatedFields}
-            totalPages={totalPages || 1}
-            onConfirm={handleConfirmUnifiedMapping}
-          />
-        </DialogContent>
-      </Dialog>
-    ) : (
+    {/* Only show legacy dialog for non-unified fields mode */}
+    {!useUnifiedFields && (
       <FieldMappingDialog
         open={showMappingDialog}
         onOpenChange={setShowMappingDialog}
