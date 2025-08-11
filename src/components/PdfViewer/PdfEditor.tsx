@@ -93,7 +93,7 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
 
     // Create a new unified field with the dropped type and position
     const newField = addUnifiedField({
-      key: `${fieldType}_${Date.now()}`, // Generate a unique key
+      // Don't provide a key - let the store generate it properly (text_1, checkbox_2, etc.)
       type: fieldType,
       variant: 'single',
       page,

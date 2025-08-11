@@ -745,10 +745,13 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   duplicateUnifiedField: (id) => {
     const field = get().unifiedFields.find(f => f.id === id);
     if (field) {
+      const existingFields = get().unifiedFields;
+      // Generate a new key based on the field type
+      const generatedKey = generateUnifiedFieldKey(field.type, existingFields);
       const newField: UnifiedField = {
         ...field,
         id: `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        key: `${field.key}_copy`,
+        key: generatedKey,
         position: {
           x: field.position.x + 20,
           y: field.position.y + 20
@@ -772,7 +775,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     // Convert legacy bottom-edge Y to top-edge Y
     const fieldHeight = field.size?.height || 30;
     return {
-      id: `unified_${field.key}_${Date.now()}`,
+      id: `unified_${field.key}`,
       key: field.key,
       type: field.type,
       variant: 'single',
@@ -798,7 +801,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       const actionHeight = firstAction?.size?.height || 30;
       const position = firstAction?.position || { x: 100, y: 100 };
       return {
-        id: `unified_${logicField.key}_${option.key}_${Date.now()}`,
+        id: `unified_${logicField.key}_${option.key}`,
         key: `${logicField.key}_${option.key}`,
         type: 'text' as const,
         variant: 'single' as const,
@@ -825,7 +828,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       const firstAction = booleanField.trueActions[0];
       const actionHeight = firstAction.size?.height || 30;
       fields.push({
-        id: `unified_${booleanField.key}_true_${Date.now()}`,
+        id: `unified_${booleanField.key}_true`,
         key: `${booleanField.key}_true`,
         type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
         variant: 'single',
@@ -848,7 +851,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       const firstAction = booleanField.falseActions[0];
       const actionHeight = firstAction.size?.height || 30;
       fields.push({
-        id: `unified_${booleanField.key}_false_${Date.now() + 1}`,
+        id: `unified_${booleanField.key}_false`,
         key: `${booleanField.key}_false`,
         type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
         variant: 'single',
