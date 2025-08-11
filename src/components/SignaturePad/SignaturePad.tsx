@@ -118,10 +118,12 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     
+    let minX = canvas.width;
+    let maxX = 0;
     let minY = canvas.height;
     let maxY = 0;
     
-    // Only scan for vertical bounds - preserve horizontal positioning
+    // Scan for both horizontal and vertical bounds
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
         const idx = (y * canvas.width + x) * 4;
@@ -129,6 +131,8 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
         
         // If pixel is not fully transparent
         if (alpha > 0) {
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
           minY = Math.min(minY, y);
           maxY = Math.max(maxY, y);
         }
@@ -136,17 +140,17 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     }
     
     // If no content found, return null
-    if (minY > maxY) {
+    if (minX > maxX || minY > maxY) {
       return null;
     }
     
-    // Add small padding (5px) to avoid cutting too close vertically
+    // Add small padding (5px) to avoid cutting too close
     const padding = 5;
     return {
-      x: 0, // Always start from left edge
+      x: Math.max(0, minX - padding),
       y: Math.max(0, minY - padding),
-      width: canvas.width, // Always use full width
-      height: Math.min(canvas.height, maxY - minY + padding * 2)
+      width: Math.min(canvas.width - minX + padding, maxX - minX + padding * 2),
+      height: Math.min(canvas.height - minY + padding, maxY - minY + padding * 2)
     };
   };
 
@@ -162,25 +166,33 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
       return;
     }
 
-    // Create a new canvas with the SAME WIDTH as the original
-    // but with cropped height to remove vertical whitespace
+    // Create a new canvas with cropped dimensions to remove whitespace
     const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = canvas.width; // Keep original width
+    croppedCanvas.width = bounds.width;
     croppedCanvas.height = bounds.height;
     
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return;
     
-    // Copy the signature content, preserving horizontal position
-    // Only crop vertical whitespace
+    // Copy the signature content, cropping both horizontal and vertical whitespace
     croppedCtx.drawImage(
       canvas,
-      0, bounds.y, canvas.width, bounds.height, // Source: full width, cropped height
-      0, 0, canvas.width, bounds.height // Dest: full width, cropped height
+      bounds.x, bounds.y, bounds.width, bounds.height, // Source: cropped area
+      0, 0, bounds.width, bounds.height // Dest: full cropped dimensions
     );
     
-    // Convert to data URL as PNG
+    // Convert to data URL as PNG with dimensions metadata
     const dataURL = croppedCanvas.toDataURL('image/png');
+    
+    // Include the actual dimensions in the data for proper field sizing
+    const signatureData = {
+      dataUrl: dataURL,
+      width: bounds.width,
+      height: bounds.height
+    };
+    
+    // For backward compatibility, still pass the dataURL string
+    // The dimensions will be used when creating the field
     onSignatureSave(dataURL);
   };
 

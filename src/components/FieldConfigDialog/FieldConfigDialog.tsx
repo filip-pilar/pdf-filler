@@ -31,6 +31,7 @@ export function FieldConfigDialog({
   const [sampleValue, setSampleValue] = useState<any>('');
   const [checkboxValue, setCheckboxValue] = useState(false);
   const [fieldKeyError, setFieldKeyError] = useState('');
+  const [signatureDimensions, setSignatureDimensions] = useState<{ width: number; height: number } | null>(null);
   
   // Initialize form when field changes
   useEffect(() => {
@@ -87,11 +88,19 @@ export function FieldConfigDialog({
       finalSampleValue = sampleValue || undefined;
     }
     
-    // Update the field
-    updateUnifiedField(field.id, {
+    // Update the field with dimensions for signature fields
+    const updateData: any = {
       key: cleanedKey,
       sampleValue: finalSampleValue
-    });
+    };
+    
+    // If it's a signature field with calculated dimensions, update the field dimensions
+    if (field.type === 'signature' && signatureDimensions && finalSampleValue) {
+      updateData.width = signatureDimensions.width;
+      updateData.height = signatureDimensions.height;
+    }
+    
+    updateUnifiedField(field.id, updateData);
     
     onSave?.();
     onOpenChange(false);
@@ -192,7 +201,28 @@ export function FieldConfigDialog({
             <div className="space-y-2">
               <Label>Signature</Label>
               <SignaturePad
-                onSignatureSave={(data) => setSampleValue(data)}
+                onSignatureSave={(data) => {
+                  setSampleValue(data);
+                  // Extract dimensions from the signature image
+                  if (data) {
+                    const img = new Image();
+                    img.onload = () => {
+                      // Calculate proper field dimensions based on signature aspect ratio
+                      // Use a base height of 60px and scale width proportionally
+                      const baseHeight = 60;
+                      const aspectRatio = img.width / img.height;
+                      const calculatedWidth = Math.round(baseHeight * aspectRatio);
+                      
+                      setSignatureDimensions({
+                        width: Math.min(calculatedWidth, 300), // Cap at 300px width
+                        height: baseHeight
+                      });
+                    };
+                    img.src = data;
+                  } else {
+                    setSignatureDimensions(null);
+                  }
+                }}
                 initialValue={sampleValue}
               />
               <p className="text-xs text-muted-foreground">
