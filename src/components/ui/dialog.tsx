@@ -39,6 +39,27 @@ const DialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
         className
       )}
+      onPointerDownOutside={(event) => {
+        const target = event.target as HTMLElement;
+        // Check if the click is on a toast element
+        // Sonner toasts have various class names and structures
+        const isToastClick = 
+          target.closest('[data-sonner-toast]') || 
+          target.closest('[data-sonner-toaster]') ||
+          target.closest('.sonner-toast') ||
+          target.closest('.sonner-toaster') ||
+          target.closest('[role="status"]') || // Sonner toasts have role="status"
+          target.closest('[data-toast]'); // Some toast variants
+        
+        if (isToastClick) {
+          event.preventDefault(); // Prevent dialog from closing
+        }
+        
+        // Call original handler if provided
+        if (props.onPointerDownOutside) {
+          props.onPointerDownOutside(event);
+        }
+      }}
       {...props}
     >
       {children}
