@@ -177,13 +177,21 @@ git show 9dd43e1:src/App.tsx
 
 ### Testing Checklist
 - [x] Fields drag from sidebar to PDF
-- [x] Fields move smoothly on PDF
-- [x] Grid snapping works
-- [x] Field resizing works
+- [x] Fields move smoothly on PDF (fixed lag issue)
+- [x] Grid snapping works (properly scaled)
+- [x] Field resizing works (fixed handler signature)
 - [x] No flickering or opacity issues
 - [x] Options fields work correctly
 - [x] Field dialogs open on double-click
 - [x] TypeScript compilation passes
+
+### Additional Fixes (Post-Recovery)
+- Fixed resize handler signature: `data: { size: { width, height } }`
+- Scaled grid properly: `[gridSize * scale, gridSize * scale]`
+- Fixed bounds calculation: `(pageWidth - fieldWidth) * scale`
+- Added `cancel=".react-resizable-handle"` to prevent drag conflicts
+- Added `handleResize` for real-time visual feedback
+- Fixed wrapper div structure with explicit dimensions
 
 ## NOTES FOR RESUMPTION
 Recovery complete. System is now stable with hybrid drag-and-drop.

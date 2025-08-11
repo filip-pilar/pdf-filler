@@ -57,6 +57,7 @@ export function OptionsFieldDialog({
     addUnifiedField, 
     updateUnifiedField, 
     getUnifiedFieldById,
+    unifiedFields,
     currentPage 
   } = useFieldStore();
   const { startPicking, isPickingPosition } = usePositionPickerStore();
@@ -77,19 +78,30 @@ export function OptionsFieldDialog({
   const [currentPlacingIndex, setCurrentPlacingIndex] = useState(-1);
   const [combinedPosition, setCombinedPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Generate simple field key for new fields
+  const generateFieldKey = () => {
+    const existingOptionsFields = unifiedFields.filter(f => f.variant === 'options');
+    const existingNumbers = existingOptionsFields
+      .map(f => {
+        const match = f.key.match(/^options_(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      })
+      .filter(n => n > 0);
+    
+    const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+    return `options_${nextNumber}`;
+  };
+
   // Load existing field if editing
   useEffect(() => {
     if (editingFieldId && open) {
       const field = getUnifiedFieldById(editingFieldId);
-      console.log('Loading field for editing:', field);
       
       if (field && field.variant === 'options') {
         setFieldKey(field.key);
         
         // Load all option mappings
         if (field.optionMappings && field.optionMappings.length > 0) {
-          console.log('Loading option mappings:', field.optionMappings);
-          
           const loadedMappings = field.optionMappings.map(m => ({
             key: m.key,
             position: m.position,
@@ -98,131 +110,82 @@ export function OptionsFieldDialog({
           }));
           setOptionMappings(loadedMappings);
           
-          // Check if all options share the same position (combined mode)
-          const firstPos = field.optionMappings[0].position;
-          const allSamePosition = field.optionMappings.every(
-            m => m.position.x === firstPos.x && m.position.y === firstPos.y
-          );
+          // Determine render type and placement mode
+          const firstMapping = field.optionMappings[0];
+          if (firstMapping.renderType) {
+            setRenderType(firstMapping.renderType);
+          }
           
-          console.log('All same position?', allSamePosition, 'First pos:', firstPos);
+          // Check if all positions are the same (combined mode)
+          const allSamePosition = field.optionMappings.every(m => 
+            m.position?.x === firstMapping.position?.x && 
+            m.position?.y === firstMapping.position?.y
+          );
           
           if (allSamePosition && field.optionMappings.length > 1) {
             setPlacementMode('combined');
-            setCombinedPosition(firstPos);
+            setCombinedPosition(firstMapping.position || null);
           } else {
             setPlacementMode('separate');
           }
         }
-        
-        setRenderType(field.renderType || 'checkmark');
       }
-    } else if (open) {
-      // Reset for new field
-      resetDialog();
+    } else if (open && !editingFieldId) {
+      // New field - generate key
+      setFieldKey(generateFieldKey());
     }
-  }, [editingFieldId, open, getUnifiedFieldById]);
+  }, [editingFieldId, open]);
 
-  const resetDialog = () => {
-    setFieldKey('');
-    setNewOptionKey('');
-    setPlacementMode('separate');
-    setRenderType('checkmark');
-    setOptionMappings([]);
-    setIsPlacingOptions(false);
-    setCurrentPlacingIndex(-1);
-    setCombinedPosition(null);
-  };
-
-  // Reposition a single option
-  const repositionSingleOption = (optionKey: string) => {
-    const option = optionMappings.find(m => m.key === optionKey);
-    if (!option) return;
-    
-    // Close dialog temporarily
-    onOpenChange(false);
-    
-    const actionType = renderType === 'checkmark' ? 'checkmark' : 
-                       renderType === 'custom' ? 'fillCustom' : 'fillLabel';
-    const displayText = renderType === 'custom' && option.customText 
-      ? option.customText 
-      : option.key;
-    
-    // Start position picker for this specific option
-    setTimeout(() => {
-      startPicking({
-        actionId: `${fieldKey}_${option.key}_reposition`,
-        content: displayText,
-        optionLabel: `Reposition "${option.key}"`,
-        actionType: actionType,
-        onComplete: (position) => {
-          // Update just this option's position
-          const updatedMappings = optionMappings.map(m => 
-            m.key === optionKey 
-              ? { ...m, position, placed: true }
-              : m
-          );
-          setOptionMappings(updatedMappings);
-          
-          // Save the field with updated position
-          if (editingFieldId) {
-            const field = getUnifiedFieldById(editingFieldId);
-            if (field) {
-              updateUnifiedField(editingFieldId, {
-                ...field,
-                optionMappings: updatedMappings.map(m => ({
-                  key: m.key,
-                  position: m.position!,
-                  size: renderType === 'checkmark' 
-                    ? { width: 25, height: 25 }
-                    : { width: 100, height: 30 },
-                  customText: m.customText
-                }))
-              });
-              toast.success(`Repositioned "${optionKey}"`);
-            }
-          }
-          
-          // Reopen dialog
-          onOpenChange(true);
-        },
-        onCancel: () => {
-          // Reopen dialog if cancelled
-          onOpenChange(true);
+  // Handle Enter key to add option (when in option input) or save (when not placing)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!open) return;
+      
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // If we're in the new option input, add the option
+        if (document.activeElement?.id === 'new-option-key' && newOptionKey.trim()) {
+          e.preventDefault();
+          handleAddOption();
         }
-      });
-    }, 200);
-  };
-  
-  // Validate key - no spaces or special characters
-  const validateKey = (key: string): string | null => {
-    const trimmed = key.trim();
-    if (!trimmed) return null;
-    
-    // Replace spaces with underscores and remove special chars
-    const cleaned = trimmed
-      .replace(/\s+/g, '_')  // Replace spaces with underscores
-      .replace(/[^a-zA-Z0-9_-]/g, ''); // Only allow alphanumeric, underscore, hyphen
-    
-    return cleaned || null;
-  };
-  
-  const handleAddOption = () => {
-    const cleaned = validateKey(newOptionKey);
-    if (!cleaned) {
-      if (newOptionKey.trim()) {
-        toast.error('Invalid key. Use only letters, numbers, underscores, and hyphens.');
+        // Otherwise, if we're not placing and have at least one option, save
+        else if (!isPlacingOptions && !isPickingPosition && optionMappings.length > 0) {
+          e.preventDefault();
+          handleSave();
+        }
       }
-      return;
-    }
+    };
     
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, newOptionKey, isPlacingOptions, isPickingPosition, optionMappings, fieldKey]);
+
+  // Position picker callback
+  useEffect(() => {
+    const unsubscribe = usePositionPickerStore.subscribe((state) => {
+      if (!state.isPickingPosition && isPlacingOptions) {
+        const position = state.lastConfirmedPosition;
+        if (position) {
+          handlePositionPicked(position);
+        }
+      }
+    });
+    
+    return unsubscribe;
+  }, [isPlacingOptions, currentPlacingIndex, optionMappings, placementMode]);
+
+  const handleAddOption = () => {
+    const cleaned = newOptionKey.trim();
+    if (!cleaned) return;
+    
+    // Check for duplicates
     if (optionMappings.some(m => m.key === cleaned)) {
-      toast.error(`Option "${cleaned}" already exists`);
+      toast.error('Option already exists');
       return;
     }
     
     setOptionMappings([...optionMappings, { 
-      key: cleaned, 
-      placed: false 
+      key: cleaned,
+      placed: false
     }]);
     setNewOptionKey('');
   };
@@ -231,177 +194,136 @@ export function OptionsFieldDialog({
     setOptionMappings(optionMappings.filter(m => m.key !== key));
   };
 
-  const handleCustomTextChange = (key: string, text: string) => {
-    setOptionMappings(prev => prev.map(m => 
+  const handleUpdateCustomText = (key: string, text: string) => {
+    setOptionMappings(optionMappings.map(m => 
       m.key === key ? { ...m, customText: text } : m
     ));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && newOptionKey.trim()) {
-      e.preventDefault();
-      handleAddOption();
+  const handleStartPlacement = () => {
+    if (placementMode === 'combined') {
+      // For combined mode, pick a single position
+      setIsPlacingOptions(true);
+      toast.info('Click on the PDF to place all options at one position');
+      startPicking('text');
+    } else {
+      // For separate mode, start placing the first option
+      setIsPlacingOptions(true);
+      setCurrentPlacingIndex(0);
+      toast.info(`Click to place option: ${optionMappings[0].key}`);
+      startPicking(renderType === 'checkmark' ? 'checkmark' : 'text');
     }
   };
 
-  // Start the placement flow
-  const startPlacement = () => {
-    if (!fieldKey.trim()) {
-      toast.error('Please enter a field key');
-      return;
-    }
-    if (optionMappings.length === 0) {
-      toast.error('Please add at least one option');
-      return;
-    }
-
-    setIsPlacingOptions(true);
-    
-    // Close the dialog to show the PDF clearly
-    onOpenChange(false);
-    
-    // Small delay to let dialog close animation complete
-    setTimeout(() => {
-      if (placementMode === 'combined') {
-        // Place single position for all options
-        placeCombinedPosition();
+  const handlePositionPicked = (position: { x: number; y: number; page: number }) => {
+    if (placementMode === 'combined') {
+      // Apply position to all options
+      setCombinedPosition({ x: position.x, y: position.y });
+      const updatedMappings = optionMappings.map(m => ({
+        ...m,
+        position: { x: position.x, y: position.y },
+        placed: true
+      }));
+      setOptionMappings(updatedMappings);
+      setIsPlacingOptions(false);
+      toast.success('All options placed successfully!');
+    } else {
+      // Place individual option
+      const updatedMappings = [...optionMappings];
+      updatedMappings[currentPlacingIndex] = {
+        ...updatedMappings[currentPlacingIndex],
+        position: { x: position.x, y: position.y },
+        placed: true
+      };
+      setOptionMappings(updatedMappings);
+      
+      // Move to next option or finish
+      const nextIndex = currentPlacingIndex + 1;
+      if (nextIndex < optionMappings.length) {
+        setCurrentPlacingIndex(nextIndex);
+        toast.info(`Click to place option: ${optionMappings[nextIndex].key}`);
+        startPicking(renderType === 'checkmark' ? 'checkmark' : 'text');
       } else {
-        // Start placing individual options with current mappings
-        setCurrentPlacingIndex(0);
-        placeNextOption(0, optionMappings);
-      }
-    }, 200);
-  };
-
-  // Place combined position (for list mode)
-  const placeCombinedPosition = () => {
-    startPicking({
-      actionId: `${fieldKey}_combined`,
-      content: 'combined list',
-      optionLabel: 'All Options',
-      actionType: 'fillLabel',
-      onComplete: (position) => {
-        setCombinedPosition(position);
-        // Update all option mappings with the same position
-        const updatedMappings = optionMappings.map(m => ({
-          ...m,
-          position,
-          placed: true
-        }));
-        setOptionMappings(updatedMappings);
-        finishPlacement(updatedMappings);
-      },
-      onCancel: () => {
         setIsPlacingOptions(false);
         setCurrentPlacingIndex(-1);
-        // Reopen dialog if cancelled
-        onOpenChange(true);
+        toast.success('All options placed successfully!');
       }
-    });
+    }
   };
 
-  // Place individual option positions - NOT using useCallback to avoid stale closures
-  const placeNextOption = (index: number, mappingsToPlace?: OptionMapping[]) => {
-    // Use passed mappings or current state
-    const currentMappings = mappingsToPlace || optionMappings;
-    
-    if (index >= currentMappings.length) {
-      // All placed, save the field with current mappings
-      finishPlacement(currentMappings);
+  const handleSave = () => {
+    if (!fieldKey.trim()) {
+      toast.error('Field key is required');
       return;
     }
-
-    const option = currentMappings[index];
-    const actionType = renderType === 'checkmark' ? 'checkmark' : 
-                       renderType === 'custom' ? 'fillCustom' : 'fillLabel';
-    const displayText = renderType === 'custom' && option.customText 
-      ? option.customText 
-      : option.key;
     
-    startPicking({
-      actionId: `${fieldKey}_${option.key}`,
-      content: displayText,
-      optionLabel: `${option.key} (${index + 1} of ${currentMappings.length})`,
-      actionType: actionType,
-      onComplete: (position) => {
-        // Update the mapping with position
-        const updatedMappings = [...currentMappings];
-        updatedMappings[index] = {
-          ...updatedMappings[index],
-          position,
-          placed: true
-        };
-        setOptionMappings(updatedMappings);
-        
-        // Move to next option
-        const nextIndex = index + 1;
-        if (nextIndex < updatedMappings.length) {
-          setCurrentPlacingIndex(nextIndex);
-          // Small delay for visual feedback, pass the updated mappings
-          setTimeout(() => placeNextOption(nextIndex, updatedMappings), 100);
-        } else {
-          // All done with all mappings
-          finishPlacement(updatedMappings);
-        }
-      },
-      onCancel: () => {
-        setIsPlacingOptions(false);
-        setCurrentPlacingIndex(-1);
-        // Reopen dialog if cancelled  
-        onOpenChange(true);
-      }
-    });
-  };
-
-  // Complete the placement and create/update field
-  const finishPlacement = (mappings: OptionMapping[]) => {
-    // Determine field type based on renderType
-    const fieldType = renderType === 'checkmark' ? 'checkbox' : 'text';
+    if (optionMappings.length === 0) {
+      toast.error('At least one option is required');
+      return;
+    }
     
-    // Debug: check what we're about to save
-    const finalMappings = mappings.filter(m => m.position && m.key !== 'combined').map(m => ({
-      key: m.key,
-      position: m.position!,
+    // Check if all options have been placed
+    const unplacedOptions = optionMappings.filter(m => !m.placed);
+    if (unplacedOptions.length > 0) {
+      toast.error('Please place all options on the PDF first');
+      return;
+    }
+    
+    // Prepare field data
+    const fieldData = {
+      key: fieldKey.trim(),
+      type: 'text' as const,
+      variant: 'options' as const,
+      optionMappings: optionMappings.map(m => ({
+        key: m.key,
+        position: m.position!,
+        renderType: renderType,
+        customText: renderType === 'custom' ? m.customText : undefined,
+        size: renderType === 'checkmark' 
+          ? { width: 25, height: 25 }
+          : { width: 100, height: 30 }
+      })),
+      page: currentPage,
+      position: combinedPosition || optionMappings[0].position!,
       size: renderType === 'checkmark' 
         ? { width: 25, height: 25 }
         : { width: 100, height: 30 },
-      customText: renderType === 'custom' ? m.customText : undefined
-    }));
-    
-    console.log('Saving field with mappings:', finalMappings);
-    
-    const field = {
-      key: fieldKey,
-      type: fieldType as const,
-      variant: 'options' as const,
-      page: currentPage,
-      position: placementMode === 'combined' 
-        ? combinedPosition || { x: 100, y: 100 }
-        : mappings[0]?.position || { x: 100, y: 100 },
+      structure: placementMode === 'combined' ? 'merged' : 'simple',
       enabled: true,
-      structure: 'array' as const,  // Always array since options can be multiple
-      multiSelect: true,  // The actual behavior depends on the data at generation time
-      renderType,
-      placementCount: finalMappings.length,
-      optionMappings: finalMappings
+      placementCount: optionMappings.length
     };
     
     if (editingFieldId) {
-      updateUnifiedField(editingFieldId, field);
-      toast.success(`Field "${fieldKey}" updated`);
+      // Update existing field
+      updateUnifiedField(editingFieldId, fieldData);
+      toast.success('Options field updated');
     } else {
-      addUnifiedField(field);
-      toast.success(`Field "${fieldKey}" created with ${optionMappings.length} options`);
+      // Create new field
+      addUnifiedField(fieldData);
+      toast.success('Options field created');
     }
     
-    // Reset state
-    setIsPlacingOptions(false);
-    setCurrentPlacingIndex(-1);
-    // Don't reset dialog if we're editing - we want to keep the state
+    onOpenChange(false);
+    resetDialog();
+  };
+
+  const resetDialog = () => {
+    if (!editingFieldId) {
+      setFieldKey('');
+      setNewOptionKey('');
+      setPlacementMode('separate');
+      setRenderType('checkmark');
+      setOptionMappings([]);
+      setIsPlacingOptions(false);
+      setCurrentPlacingIndex(-1);
+      setCombinedPosition(null);
+    }
+  };
+
+  const handleClose = () => {
     if (!editingFieldId) {
       resetDialog();
     }
-    // Dialog already closed, don't reopen
   };
 
   // Check if we're currently placing
@@ -426,8 +348,8 @@ export function OptionsFieldDialog({
         resetDialog();
       }
     }}>
-      <DialogContent className="max-w-2xl h-[600px] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] h-[90vh] sm:h-[600px] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
           <DialogTitle>
             {editingFieldId ? 'Edit Options Field' : 'Create Options Field'}
           </DialogTitle>
@@ -437,17 +359,17 @@ export function OptionsFieldDialog({
         </DialogHeader>
 
         <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="space-y-6 px-6 py-4">
+          <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 py-4">
             {/* Step 1: Field Key */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
                   1
                 </div>
-                <h3 className="font-semibold">Field Key</h3>
+                <h3 className="font-semibold text-sm sm:text-base">Field Key</h3>
               </div>
               
-              <div className="ml-10">
+              <div className="ml-9 sm:ml-10">
                 <Input
                   id="field-key"
                   value={fieldKey}
@@ -458,7 +380,7 @@ export function OptionsFieldDialog({
                       .replace(/[^a-zA-Z0-9_-]/g, ''); // Remove special chars
                     setFieldKey(cleaned);
                   }}
-                  placeholder="e.g., gender, status, permissions"
+                  placeholder="e.g., options_1"
                   className="font-mono"
                   disabled={isCurrentlyPlacing}
                 />
@@ -468,15 +390,15 @@ export function OptionsFieldDialog({
             <Separator />
 
             {/* Step 2: Display Type */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
                   2
                 </div>
-                <h3 className="font-semibold">Display Type</h3>
+                <h3 className="font-semibold text-sm sm:text-base">Display Type</h3>
               </div>
               
-              <div className="ml-10 space-y-4">
+              <div className="ml-9 sm:ml-10 space-y-3 sm:space-y-4">
                 <RadioGroup 
                   value={renderType} 
                   onValueChange={(v) => setRenderType(v as OptionRenderType)}
@@ -487,8 +409,8 @@ export function OptionsFieldDialog({
                     <Label htmlFor="checkmark" className="cursor-pointer">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <CheckSquare className="h-4 w-4" />
-                          <span className="font-medium">Checkmark</span>
+                          <CheckSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="font-medium text-sm">Checkmark</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Show ✓ at the selected option(s) position(s)
@@ -502,11 +424,11 @@ export function OptionsFieldDialog({
                     <Label htmlFor="text" className="cursor-pointer">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Type className="h-4 w-4" />
-                          <span className="font-medium">Text Value</span>
+                          <Type className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="font-medium text-sm">Text Value</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Show the selected value(s) as text at the position(s)
+                          Show the selected value(s) as text
                         </p>
                       </div>
                     </Label>
@@ -517,11 +439,11 @@ export function OptionsFieldDialog({
                     <Label htmlFor="custom" className="cursor-pointer">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          <span className="font-medium">Custom Text</span>
+                          <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="font-medium text-sm">Custom Text</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Show custom text for the selected option(s) at the position(s)
+                          Show custom text for selected option(s)
                         </p>
                       </div>
                     </Label>
@@ -533,15 +455,15 @@ export function OptionsFieldDialog({
             <Separator />
 
             {/* Step 3: Placement Strategy */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
                   3
                 </div>
-                <h3 className="font-semibold">Placement Strategy</h3>
+                <h3 className="font-semibold text-sm sm:text-base">Placement Strategy</h3>
               </div>
               
-              <div className="ml-10 space-y-4">
+              <div className="ml-9 sm:ml-10 space-y-3 sm:space-y-4">
                 <RadioGroup 
                   value={placementMode} 
                   onValueChange={(v) => setPlacementMode(v as PlacementMode)}
@@ -552,11 +474,11 @@ export function OptionsFieldDialog({
                     <Label htmlFor="separate" className="cursor-pointer">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          <span className="font-medium">Each option at its own position</span>
+                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="font-medium text-sm">Separate Positions</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Like checkboxes or radio buttons on a form - each option has a specific location
+                          Each option at its own position (like radio buttons)
                         </p>
                       </div>
                     </Label>
@@ -567,11 +489,11 @@ export function OptionsFieldDialog({
                     <Label htmlFor="combined" className="cursor-pointer">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <List className="h-4 w-4" />
-                          <span className="font-medium">All selected at one position</span>
+                          <List className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="font-medium text-sm">Combined Position</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Selected values appear as a list at a single location (e.g., "option1, option2")
+                          All selected options appear at one position as a list
                         </p>
                       </div>
                     </Label>
@@ -583,94 +505,73 @@ export function OptionsFieldDialog({
             <Separator />
 
             {/* Step 4: Option Keys */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
                   4
                 </div>
-                <h3 className="font-semibold">Define Options</h3>
+                <h3 className="font-semibold text-sm sm:text-base">Option Keys</h3>
               </div>
               
-              <div className="ml-10 space-y-4">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="ml-9 sm:ml-10 space-y-3">
+                <div className="flex gap-2">
                   <Input
-                      value={newOptionKey}
-                      onChange={(e) => setNewOptionKey(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="e.g., male, female, other"
-                      className="font-mono"
-                      disabled={isCurrentlyPlacing}
-                    />
-                  <Button
+                    id="new-option-key"
+                    value={newOptionKey}
+                    onChange={(e) => setNewOptionKey(e.target.value)}
+                    placeholder="e.g., male, female, other"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                    disabled={isCurrentlyPlacing}
+                    className="text-sm"
+                  />
+                  <Button 
                     onClick={handleAddOption}
-                    variant="outline"
                     disabled={!newOptionKey.trim() || isCurrentlyPlacing}
-                    className="w-full"
+                    size="sm"
                   >
-                    Add Option
+                    Add
                   </Button>
                 </div>
-
-                {/* Options List - Compact */}
-                {optionMappings.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {optionMappings.map((mapping) => (
-                        <div key={mapping.key} className="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-secondary/50">
-                          <span className="font-mono text-sm">{mapping.key}</span>
-                          {mapping.placed && (
-                            <Check className="h-3 w-3 text-green-600" />
-                          )}
-                          {editingFieldId && mapping.placed && placementMode === 'separate' && (
-                            <Button
-                              onClick={() => repositionSingleOption(mapping.key)}
-                              size="sm"
-                              variant="ghost"
-                              className="h-4 w-4 p-0 hover:bg-primary/20"
-                              disabled={isCurrentlyPlacing}
-                              title="Reposition this option"
-                            >
-                              <MapPin className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Button
-                            onClick={() => handleRemoveOption(mapping.key)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-4 w-4 p-0 ml-1 hover:bg-destructive/20"
-                            disabled={isCurrentlyPlacing}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                    {editingFieldId && optionMappings.some(m => m.placed) && placementMode === 'separate' && (
-                      <p className="text-xs text-muted-foreground">
-                        Click the pin icon to reposition individual options
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                    No options added yet
-                  </div>
-                )}
                 
-                {/* Custom text inputs for custom render type */}
-                {renderType === 'custom' && optionMappings.length > 0 && (
-                  <div className="space-y-2 mt-4 p-3 bg-muted/50 rounded-lg">
-                    <Label className="text-xs font-medium">Custom Display Text</Label>
+                {optionMappings.length > 0 && (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
                     {optionMappings.map((mapping) => (
-                      <div key={mapping.key} className="flex items-center gap-2">
-                        <span className="font-mono text-sm w-24">{mapping.key}:</span>
-                        <Input
-                          value={mapping.customText || ''}
-                          onChange={(e) => handleCustomTextChange(mapping.key, e.target.value)}
-                          placeholder="Display text"
-                          className="h-7 text-sm flex-1"
+                      <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
+                        <Badge 
+                          variant={mapping.placed ? "default" : "outline"} 
+                          className="font-mono text-xs"
+                        >
+                          {mapping.key}
+                        </Badge>
+                        
+                        {renderType === 'custom' && (
+                          <Input
+                            value={mapping.customText || ''}
+                            onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
+                            placeholder="Custom text..."
+                            className="flex-1 h-7 text-xs"
+                            disabled={isCurrentlyPlacing}
+                          />
+                        )}
+                        
+                        {mapping.placed && (
+                          <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                        )}
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveOption(mapping.key)}
                           disabled={isCurrentlyPlacing}
-                        />
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -678,56 +579,62 @@ export function OptionsFieldDialog({
               </div>
             </div>
 
-
-            {/* Placement Progress */}
-            {isPlacingOptions && currentPlacingIndex >= 0 && (
-              <Alert>
-                <MousePointer className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <div className="font-medium">
-                      Placing option {currentPlacingIndex + 1} of {optionMappings.length}
-                    </div>
-                    <div className="text-xs">
-                      Click on the PDF to place: <span className="font-mono">{optionMappings[currentPlacingIndex]?.key}</span>
-                    </div>
-                  </div>
+            {/* Info Alert */}
+            {getRenderDescription() && (
+              <Alert className="mx-4 sm:mx-0">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs sm:text-sm">
+                  {getRenderDescription()}
                 </AlertDescription>
               </Alert>
             )}
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (!isCurrentlyPlacing) {
-                onOpenChange(false);
-                resetDialog();
-              }
-            }}
-            disabled={isCurrentlyPlacing}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={startPlacement}
-            disabled={!fieldKey.trim() || optionMappings.length === 0 || isCurrentlyPlacing}
-            className="gap-2"
-          >
-            {isCurrentlyPlacing ? (
+        <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 border-t">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            {!isCurrentlyPlacing ? (
               <>
-                <MousePointer className="h-4 w-4 animate-pulse" />
-                Placing Options...
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    onOpenChange(false);
+                    handleClose();
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                
+                {optionMappings.length > 0 && !optionMappings.every(m => m.placed) && (
+                  <Button 
+                    onClick={handleStartPlacement}
+                    className="w-full sm:w-auto"
+                  >
+                    <MousePointer className="h-4 w-4 mr-2" />
+                    Start Placement
+                  </Button>
+                )}
+                
+                {optionMappings.length > 0 && optionMappings.every(m => m.placed) && (
+                  <Button 
+                    onClick={handleSave}
+                    className="w-full sm:w-auto"
+                  >
+                    Save
+                  </Button>
+                )}
               </>
             ) : (
-              <>
-                <ArrowRight className="h-4 w-4" />
-                Start Placement
-              </>
+              <div className="flex items-center justify-center w-full gap-2 text-sm text-muted-foreground">
+                <MousePointer className="h-4 w-4 animate-pulse" />
+                {placementMode === 'combined' 
+                  ? 'Click on the PDF to place all options'
+                  : `Placing option ${currentPlacingIndex + 1} of ${optionMappings.length}: ${optionMappings[currentPlacingIndex]?.key}`
+                }
+              </div>
             )}
-          </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

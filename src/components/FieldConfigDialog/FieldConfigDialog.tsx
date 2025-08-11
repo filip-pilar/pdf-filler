@@ -43,6 +43,21 @@ export function FieldConfigDialog({
     }
   }, [field]);
   
+  // Handle Enter key to save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (open && e.key === 'Enter' && !e.shiftKey) {
+        // Don't submit if in a textarea
+        if (e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, fieldKey, sampleValue, checkboxValue]);
+  
   const handleSave = () => {
     if (!field) return;
     
@@ -98,7 +113,7 @@ export function FieldConfigDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isNew ? `Configure ${field.type} Field` : `Edit ${field.type} Field`}
@@ -108,24 +123,24 @@ export function FieldConfigDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
             <Label htmlFor="field-key">Field Key</Label>
             <Input
               id="field-key"
               value={fieldKey}
               onChange={(e) => setFieldKey(e.target.value)}
-              placeholder="e.g., user_name, email, status"
+              placeholder={`e.g., ${field.type}_1`}
               autoFocus
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               This key will be used to bind data to the field
             </p>
           </div>
           
           {/* Field type-specific inputs */}
           {field.type === 'text' && (
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="sample-value">Sample Value (Optional)</Label>
               <Input
                 id="sample-value"
@@ -133,7 +148,7 @@ export function FieldConfigDialog({
                 onChange={(e) => setSampleValue(e.target.value)}
                 placeholder="Sample text to display..."
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 Preview value shown in the editor
               </p>
             </div>
@@ -146,48 +161,50 @@ export function FieldConfigDialog({
                 checked={checkboxValue}
                 onCheckedChange={(checked) => setCheckboxValue(!!checked)}
               />
-              <Label htmlFor="checkbox-value" className="text-sm font-normal">
+              <Label htmlFor="checkbox-value" className="text-sm font-normal cursor-pointer">
                 Field is checked
               </Label>
             </div>
           )}
           
           {field.type === 'signature' && (
-            <div>
+            <div className="space-y-2">
               <Label>Signature</Label>
               <SignaturePad
                 onSignatureSave={(data) => setSampleValue(data)}
                 initialValue={sampleValue}
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 Draw a sample signature for preview
               </p>
             </div>
           )}
           
           {field.type === 'image' && (
-            <div>
+            <div className="space-y-2">
               <Label>Image</Label>
               <ImageUpload
                 value={sampleValue}
                 onChange={(data) => setSampleValue(data)}
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 Upload a sample image for preview
               </p>
             </div>
           )}
         </div>
         
-        <DialogFooter className="flex justify-between">
-          <div>
-            {!isNew && (
-              <Button variant="destructive" onClick={handleDelete}>
-                Delete
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
+        <DialogFooter className="sm:flex-row flex-col gap-2">
+          {!isNew && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              className="sm:mr-auto"
+            >
+              Delete
+            </Button>
+          )}
+          <div className="flex gap-2 sm:ml-auto">
             <Button variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
