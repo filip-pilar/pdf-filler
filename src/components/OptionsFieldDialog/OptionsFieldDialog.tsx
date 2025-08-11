@@ -92,6 +92,9 @@ export function OptionsFieldDialog({
 
   // Track if we should auto-reopen after placement
   const shouldReopenRef = useRef(false);
+  
+  // Ref for options list scroll container
+  const optionsListRef = useRef<HTMLDivElement>(null);
 
   // Generate simple field key for new fields
   const generateFieldKey = () => {
@@ -224,6 +227,13 @@ export function OptionsFieldDialog({
       placed: false
     }]);
     setNewOptionKey('');
+    
+    // Auto-scroll to show the new option
+    setTimeout(() => {
+      if (optionsListRef.current) {
+        optionsListRef.current.scrollTop = optionsListRef.current.scrollHeight;
+      }
+    }, 50);
   };
 
   const handleRemoveOption = (key: string) => {
@@ -410,7 +420,7 @@ export function OptionsFieldDialog({
       onOpenChange(newOpen);
     }}>
       <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>
             {editingFieldId ? 'Edit Options Field' : 'Create Options Field'}
           </DialogTitle>
@@ -419,8 +429,8 @@ export function OptionsFieldDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-4 sm:px-6">
-          <div className="space-y-4 pb-4">
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-6 py-4 space-y-4">
             {/* Step 1: Field Key */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Field Key</Label>
@@ -530,40 +540,45 @@ export function OptionsFieldDialog({
               </div>
               
               {optionMappings.length > 0 && (
-                <div className="space-y-2 mt-2">
-                  {optionMappings.map((mapping) => (
-                    <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
-                      <Badge 
-                        variant={mapping.placed ? "default" : "outline"} 
-                        className="font-mono"
-                      >
-                        {mapping.key}
-                      </Badge>
-                      
-                      {renderType === 'custom' && (
-                        <Input
-                          value={mapping.customText || ''}
-                          onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
-                          placeholder="Custom text..."
-                          className="flex-1 h-8"
-                        />
-                      )}
-                      
-                      {mapping.placed && (
-                        <Check className="h-4 w-4 text-green-600" />
-                      )}
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveOption(mapping.key)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea 
+                  className="h-[200px] rounded-md border bg-background/50"
+                  ref={optionsListRef}
+                >
+                  <div className="p-3 space-y-2">
+                    {optionMappings.map((mapping) => (
+                      <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
+                        <Badge 
+                          variant={mapping.placed ? "default" : "outline"} 
+                          className="font-mono shrink-0"
+                        >
+                          {mapping.key}
+                        </Badge>
+                        
+                        {renderType === 'custom' && (
+                          <Input
+                            value={mapping.customText || ''}
+                            onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
+                            placeholder="Custom text..."
+                            className="flex-1 h-8 text-sm"
+                          />
+                        )}
+                        
+                        {mapping.placed && (
+                          <Check className="h-4 w-4 text-green-600 shrink-0" />
+                        )}
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveOption(mapping.key)}
+                          className="h-8 w-8 p-0 shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </div>
 
@@ -571,7 +586,7 @@ export function OptionsFieldDialog({
             {getRenderDescription() && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription>
+                <AlertDescription className="text-sm">
                   {getRenderDescription()}
                 </AlertDescription>
               </Alert>
@@ -579,7 +594,7 @@ export function OptionsFieldDialog({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 border-t pt-4">
+        <DialogFooter className="px-6 py-4 border-t">
           <Button 
             variant="outline" 
             onClick={() => {
