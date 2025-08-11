@@ -152,23 +152,30 @@ export function OptionsFieldDialog({
           }));
           setOptionMappings(loadedMappings);
           
-          // Determine render type and placement mode
+          // Determine render type from first mapping (all should have same renderType)
           const firstMapping = field.optionMappings[0];
           if (firstMapping.renderType) {
             setRenderType(firstMapping.renderType);
           }
           
-          // Check if all positions are the same (combined mode)
-          const allSamePosition = field.optionMappings.every(m => 
-            m.position?.x === firstMapping.position?.x && 
-            m.position?.y === firstMapping.position?.y
-          );
-          
-          if (allSamePosition && field.optionMappings.length > 1) {
+          // Determine placement mode from structure field or by checking positions
+          // Structure field is more reliable than checking positions
+          if (field.structure === 'merged') {
             setPlacementMode('combined');
             setCombinedPosition(firstMapping.position || null);
           } else {
-            setPlacementMode('separate');
+            // For backwards compatibility, also check if all positions are the same
+            const allSamePosition = field.optionMappings.every(m => 
+              m.position?.x === firstMapping.position?.x && 
+              m.position?.y === firstMapping.position?.y
+            );
+            
+            if (allSamePosition && field.optionMappings.length > 1) {
+              setPlacementMode('combined');
+              setCombinedPosition(firstMapping.position || null);
+            } else {
+              setPlacementMode('separate');
+            }
           }
         }
       }
@@ -561,13 +568,31 @@ export function OptionsFieldDialog({
     // Determine which field ID we're working with
     const fieldId = editingFieldId || placementStateRef?.editingFieldId;
     
+    // Adjust positions based on placement mode
+    let finalMappings = [...optionMappings];
+    let fieldPosition = optionMappings[0].position!;
+    
+    if (placementMode === 'combined') {
+      // For combined mode, ensure all options have the same position
+      const basePosition = combinedPosition || optionMappings[0].position!;
+      finalMappings = optionMappings.map(m => ({
+        ...m,
+        position: basePosition
+      }));
+      fieldPosition = basePosition;
+    } else {
+      // For separate mode, keep individual positions
+      // Use the first option's position as the field position
+      fieldPosition = optionMappings[0].position!;
+    }
+    
     if (fieldId) {
       // Update existing field (either passed as prop or created during placement)
       const fieldData = {
         key: fieldKey.trim(),
         type: 'text' as const,
         variant: 'options' as const,
-        optionMappings: optionMappings.map(m => ({
+        optionMappings: finalMappings.map(m => ({
           key: m.key,
           position: m.position!,
           renderType: renderType,
@@ -578,7 +603,7 @@ export function OptionsFieldDialog({
             : { width: 100, height: 30 }
         })),
         page: currentPage,
-        position: combinedPosition || optionMappings[0].position!,
+        position: fieldPosition,
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 },
@@ -599,7 +624,7 @@ export function OptionsFieldDialog({
         key: fieldKey.trim(),
         type: 'text' as const,
         variant: 'options' as const,
-        optionMappings: optionMappings.map(m => ({
+        optionMappings: finalMappings.map(m => ({
           key: m.key,
           position: m.position!,
           renderType: renderType,
@@ -610,7 +635,7 @@ export function OptionsFieldDialog({
             : { width: 100, height: 30 }
         })),
         page: currentPage,
-        position: combinedPosition || optionMappings[0].position!,
+        position: fieldPosition,
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 },
@@ -750,7 +775,15 @@ export function OptionsFieldDialog({
               <Label className="text-sm font-medium">Placement Strategy</Label>
               <RadioGroup 
                 value={placementMode} 
-                onValueChange={(v) => setPlacementMode(v as PlacementMode)}
+                onValueChange={(v) => {
+                  const newMode = v as PlacementMode;
+                  setPlacementMode(newMode);
+                  
+                  // If changing to combined mode and options exist, update combined position
+                  if (newMode === 'combined' && optionMappings.length > 0 && optionMappings[0].position) {
+                    setCombinedPosition(optionMappings[0].position);
+                  }
+                }}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2">
