@@ -23,6 +23,7 @@ interface DraggableUnifiedFieldProps {
 export function DraggableUnifiedField({
   field,
   scale,
+  pageWidth,
   pageHeight,
   isSelected,
   optionKey,
@@ -99,11 +100,15 @@ export function DraggableUnifiedField({
   const isSignature = field.type === 'signature';
   const hasImageData = (isImage || isSignature) && field.sampleValue && typeof field.sampleValue === 'string' && field.sampleValue.startsWith('data:');
   
+  // Get field dimensions
+  const fieldWidth = field.size?.width || 200;
+  const fieldHeight = field.size?.height || 30;
+  
   // Handle drag stop - update position in store
-  const handleDragStop = (_e: any, data: any) => {
+  const handleDragStop = (_e: any, data: { x: number; y: number }) => {
     setIsDragging(false);
     
-    // Convert screen coordinates back to PDF coordinates
+    // Convert scaled screen coordinates back to PDF coordinates
     const newX = data.x / scale;
     const newScreenY = data.y / scale;
     const newPdfY = pageHeight - newScreenY;
@@ -132,10 +137,18 @@ export function DraggableUnifiedField({
     }
   };
 
+  // Handle resize - update temporary size for visual feedback
+  const handleResize = (_e: any, data: { size: { width: number; height: number } }) => {
+    setResizingSize({
+      width: data.size.width / scale,
+      height: data.size.height / scale
+    });
+  };
+
   // Handle resize stop - update size in store
-  const handleResizeStop = (_e: any, _direction: any, ref: any) => {
-    const newWidth = ref.offsetWidth / scale;
-    const newHeight = ref.offsetHeight / scale;
+  const handleResizeStop = (_e: any, data: { size: { width: number; height: number } }) => {
+    const newWidth = data.size.width / scale;
+    const newHeight = data.size.height / scale;
     
     // Apply grid snapping to size
     const snappedSize = isEnabled 
@@ -152,15 +165,14 @@ export function DraggableUnifiedField({
   // Calculate position and size with scale
   const scaledX = field.position.x * scale;
   const scaledY = screenY * scale;
-  const scaledWidth = (field.size?.width || 200) * scale;
-  const scaledHeight = (field.size?.height || 30) * scale;
+  const scaledWidth = (resizingSize?.width || fieldWidth) * scale;
+  const scaledHeight = (resizingSize?.height || fieldHeight) * scale;
 
   // Determine if field should be resizable
   const isResizable = !isCheckbox && !isPreview && !optionKey;
 
   const fieldContent = (
     <div
-      ref={nodeRef}
       className={cn(
         "border rounded cursor-move overflow-hidden transition-shadow",
         "hover:shadow-md hover:z-10",
@@ -182,8 +194,8 @@ export function DraggableUnifiedField({
         ? `${field.key}: ${optionKey}${isPreview ? ' (preview)' : ''}` 
         : `${field.key} (${field.type}${field.variant !== 'single' ? ` - ${field.variant}` : ''})`}
       style={{
-        width: resizingSize ? resizingSize.width * scale : scaledWidth,
-        height: resizingSize ? resizingSize.height * scale : scaledHeight,
+        width: '100%',
+        height: '100%',
         fontSize: 12 * scale,
       }}
     >
@@ -220,7 +232,7 @@ export function DraggableUnifiedField({
     </div>
   );
 
-  // For resizable fields, wrap in ResizableBox
+  // For resizable fields, wrap in ResizableBox inside Draggable
   if (isResizable) {
     return (
       <Draggable
@@ -228,30 +240,25 @@ export function DraggableUnifiedField({
         position={{ x: scaledX, y: scaledY }}
         onStart={() => setIsDragging(true)}
         onStop={handleDragStop}
-        grid={isEnabled ? [gridSize, gridSize] : undefined}
+        grid={isEnabled ? [gridSize * scale, gridSize * scale] : undefined}
         bounds={{
           left: 0,
           top: 0,
-          right: pageWidth * scale - scaledWidth,
-          bottom: pageHeight * scale - scaledHeight
+          right: (pageWidth - fieldWidth) * scale,
+          bottom: (pageHeight - fieldHeight) * scale
         }}
-        scale={scale}
+        cancel=".react-resizable-handle"
       >
-        <div style={{ position: 'absolute' }}>
+        <div ref={nodeRef} style={{ position: 'absolute', width: scaledWidth, height: scaledHeight }}>
           <ResizableBox
             width={scaledWidth}
             height={scaledHeight}
             minConstraints={[50 * scale, 20 * scale]}
             maxConstraints={[pageWidth * scale, pageHeight * scale]}
             onResizeStop={handleResizeStop}
-            onResize={(_e, { size }) => {
-              setResizingSize({ 
-                width: size.width / scale, 
-                height: size.height / scale 
-              });
-            }}
-            resizeHandles={['se', 'e', 's']}
-            handleSize={[10, 10]}
+            onResize={handleResize}
+            resizeHandles={isSelected ? ['se', 'e', 's'] : []}
+            draggableOpts={{ grid: isEnabled ? [gridSize * scale, gridSize * scale] : undefined }}
           >
             {fieldContent}
           </ResizableBox>
@@ -267,16 +274,22 @@ export function DraggableUnifiedField({
       position={{ x: scaledX, y: scaledY }}
       onStart={() => setIsDragging(true)}
       onStop={handleDragStop}
-      grid={isEnabled ? [gridSize, gridSize] : undefined}
+      grid={isEnabled ? [gridSize * scale, gridSize * scale] : undefined}
       bounds={{
         left: 0,
         top: 0,
-        right: pageWidth * scale - scaledWidth,
-        bottom: pageHeight * scale - scaledHeight
+        right: (pageWidth - fieldWidth) * scale,
+        bottom: (pageHeight - fieldHeight) * scale
       }}
-      scale={scale}
     >
-      <div style={{ position: 'absolute' }}>
+      <div 
+        ref={nodeRef} 
+        style={{ 
+          position: 'absolute', 
+          width: scaledWidth, 
+          height: scaledHeight 
+        }}
+      >
         {fieldContent}
       </div>
     </Draggable>
