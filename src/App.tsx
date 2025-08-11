@@ -50,7 +50,20 @@ function App() {
         </SidebarInset>
       </SidebarProvider>
       <StatusBar />
-      <Toaster />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            pointerEvents: 'auto',
+          },
+          onClick: (e) => {
+            // Prevent click from propagating to underlying elements
+            if (e && typeof e.stopPropagation === 'function') {
+              e.stopPropagation();
+            }
+          },
+        }}
+      />
     </DndProvider>
   );
 }
