@@ -8,6 +8,7 @@ import { SignaturePad } from '@/components/SignaturePad/SignaturePad';
 import { ImageUpload } from '@/components/ImageUpload/ImageUpload';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
+import { toast } from 'sonner';
 
 interface FieldConfigDialogProps {
   field: UnifiedField | null;
@@ -69,7 +70,7 @@ export function FieldConfigDialog({
       .replace(/-+$/, '');
     
     if (!cleanedKey) {
-      alert('Please enter a valid field key');
+      toast.error('Please enter a valid field key');
       return;
     }
     

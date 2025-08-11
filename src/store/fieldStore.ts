@@ -12,6 +12,7 @@ interface FieldState {
   
   // Unified fields (new system)
   unifiedFields: UnifiedField[];
+  selectedUnifiedFieldId: string | null;
   
   // Regular fields (legacy)
   fields: Field[];
@@ -101,6 +102,8 @@ interface FieldState {
   getUnifiedFieldById: (id: string) => UnifiedField | undefined;
   getUnifiedFieldByKey: (key: string) => UnifiedField | undefined;
   getUnifiedFieldsForPage: (page: number) => UnifiedField[];
+  selectUnifiedField: (id: string | null) => void;
+  deselectUnifiedField: () => void;
   
   // Migration operations
   convertFieldToUnified: (field: Field) => UnifiedField;
@@ -158,6 +161,17 @@ const generateUnifiedFieldKey = (type: string, existingFields: UnifiedField[]): 
   return `${type}_${nextNumber}`;
 };
 
+// Get default field size based on type
+const getDefaultFieldSize = (type: FieldType) => {
+  switch (type) {
+    case 'text': return { width: 120, height: 32 };
+    case 'image': return { width: 100, height: 100 };
+    case 'signature': return { width: 200, height: 60 };
+    case 'checkbox': return { width: 20, height: 20 };
+    default: return { width: 120, height: 32 };
+  }
+};
+
 
 export const useFieldStore = create<FieldState>((set, get) => ({
   // Feature flag
@@ -165,6 +179,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   // Unified fields (new system)
   unifiedFields: [],
+  selectedUnifiedFieldId: null,
   
   // Regular fields (legacy)
   fields: [],
@@ -694,6 +709,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       variant: 'single',
       page: 1,
       position: { x: 100, y: 100 },
+      size: getDefaultFieldSize(fieldType),
       enabled: true,
       structure: 'simple',
       placementCount: 1,
@@ -716,7 +732,8 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   deleteUnifiedField: (id) => {
     set((state) => ({
-      unifiedFields: state.unifiedFields.filter(f => f.id !== id)
+      unifiedFields: state.unifiedFields.filter(f => f.id !== id),
+      selectedUnifiedFieldId: state.selectedUnifiedFieldId === id ? null : state.selectedUnifiedFieldId
     }));
   },
   
@@ -740,7 +757,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     set({ unifiedFields: migratedFields });
   },
   
-  clearUnifiedFields: () => set({ unifiedFields: [] }),
+  clearUnifiedFields: () => set({ unifiedFields: [], selectedUnifiedFieldId: null }),
   
   duplicateUnifiedField: (id) => {
     const field = get().unifiedFields.find(f => f.id === id);
@@ -769,6 +786,14 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   getUnifiedFieldByKey: (key) => get().unifiedFields.find(f => f.key === key),
   
   getUnifiedFieldsForPage: (page) => get().unifiedFields.filter(f => f.page === page),
+  
+  selectUnifiedField: (id) => {
+    set({ selectedUnifiedFieldId: id });
+  },
+  
+  deselectUnifiedField: () => {
+    set({ selectedUnifiedFieldId: null });
+  },
   
   // Migration operations
   convertFieldToUnified: (field) => {

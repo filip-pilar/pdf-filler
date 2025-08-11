@@ -1,5 +1,6 @@
 import { DraggableUnifiedField } from './DraggableUnifiedField';
 import type { UnifiedField } from '@/types/unifiedField.types';
+import { useFieldStore } from '@/store/fieldStore';
 
 interface UnifiedFieldOverlayProps {
   fields: UnifiedField[];
@@ -20,6 +21,7 @@ export function UnifiedFieldOverlay({
   pageHeight,
   onFieldDoubleClick,
 }: UnifiedFieldOverlayProps) {
+  const { selectUnifiedField } = useFieldStore();
   // Filter fields for current page and enabled status
   const currentPageFields = fields.filter(
     field => field.page === currentPage && field.enabled
@@ -52,6 +54,7 @@ export function UnifiedFieldOverlay({
                 isSelected={selectedFieldId === field.id}
                 optionKey={mapping.key}
                 renderType={mapping.renderType}
+                onClick={() => selectUnifiedField(field.id)}
                 onDoubleClick={() => onFieldDoubleClick?.(field)}
               />
             </div>
@@ -67,6 +70,7 @@ export function UnifiedFieldOverlay({
               pageWidth={pageWidth}
               pageHeight={pageHeight}
               isSelected={selectedFieldId === field.id}
+              onClick={() => selectUnifiedField(field.id)}
               onDoubleClick={() => onFieldDoubleClick?.(field)}
             />
           </div>

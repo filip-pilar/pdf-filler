@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { useFieldStore } from '@/store/fieldStore';
 import { usePositionPickerStore } from '@/store/positionPickerStore';
@@ -26,7 +25,6 @@ import {
   FileText, 
   MapPin,
   List,
-  Info,
   Check
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -393,17 +391,6 @@ export function OptionsFieldDialog({
     }
   };
 
-  // Get description for render type
-  const getRenderDescription = () => {
-    switch (renderType) {
-      case 'text':
-        return 'The actual value will be shown (e.g., "male")';
-      case 'checkmark':
-        return 'A checkmark ✓ will appear at the position';
-      case 'custom':
-        return 'Your custom text will be shown for each option';
-    }
-  };
 
   // Check if ready to place
   const canStartPlacement = optionMappings.length > 0 && !optionMappings.every(m => m.placed);
@@ -523,6 +510,7 @@ export function OptionsFieldDialog({
                   value={newOptionKey}
                   onChange={(e) => setNewOptionKey(e.target.value)}
                   placeholder="e.g., male, approved, yes"
+                  className="w-1/2"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -533,9 +521,9 @@ export function OptionsFieldDialog({
                 <Button 
                   onClick={handleAddOption}
                   disabled={!newOptionKey.trim()}
-                  size="sm"
+                  className="w-1/2"
                 >
-                  Add
+                  Add Option
                 </Button>
               </div>
               
@@ -582,15 +570,6 @@ export function OptionsFieldDialog({
               )}
             </div>
 
-            {/* Info Alert */}
-            {getRenderDescription() && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {getRenderDescription()}
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
         </ScrollArea>
 

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Maximize2, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Move } from 'lucide-react';
 
 interface PdfNavigationBarProps {
   currentPage: number;
@@ -10,7 +10,6 @@ interface PdfNavigationBarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitToWidth: () => void;
-  onFitToPage: () => void;
 }
 
 export function PdfNavigationBar({
@@ -20,8 +19,7 @@ export function PdfNavigationBar({
   onPageChange,
   onZoomIn,
   onZoomOut,
-  onFitToWidth,
-  onFitToPage
+  onFitToWidth
 }: PdfNavigationBarProps) {
   return (
     <div className="flex items-center justify-center bg-background border-b py-2 px-4">
@@ -89,15 +87,6 @@ export function PdfNavigationBar({
           <Move className="h-4 w-4 rotate-90" />
         </Button>
         
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onFitToPage}
-          className="h-8 w-8"
-          title="Fit to Page"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
         </div>
       </Card>
     </div>

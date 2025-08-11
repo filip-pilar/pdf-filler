@@ -4,6 +4,7 @@ import { FileDown, Download } from 'lucide-react';
 import { exportFilledPDF, downloadPDF } from '@/exporters/pdfExporter';
 import type { Field } from '@/types/field.types';
 import type { LogicField } from '@/types/logicField.types';
+import { toast } from 'sonner';
 
 interface PdfExportTabProps {
   fields: Field[];
@@ -17,7 +18,7 @@ export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName }: 
 
   const handleExportPDF = async () => {
     if (!pdfUrl) {
-      alert('Please upload a PDF first');
+      toast.error('Please upload a PDF first');
       return;
     }
 
@@ -44,7 +45,7 @@ export function PdfExportTab({ fields, logicFields = [], pdfUrl, pdfFileName }: 
       downloadPDF(filledPdfBytes, filename);
     } catch (error) {
       console.error('Failed to export PDF:', error);
-      alert('Failed to export PDF. Please try again.');
+      toast.error('Failed to export PDF. Please try again.');
     } finally {
       setExporting(false);
     }

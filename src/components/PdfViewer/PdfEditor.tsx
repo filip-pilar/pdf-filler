@@ -46,6 +46,7 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
   };
   const [scale, setScale] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
+  const [naturalPageSize, setNaturalPageSize] = useState({ width: 0, height: 0 });
   const [newFieldForConfig, setNewFieldForConfig] = useState<Field | null>(null);
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const [showLogicFieldDialog, setShowLogicFieldDialog] = useState(false);
@@ -71,9 +72,12 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
     setTotalPages,
     useUnifiedFields,
     unifiedFields,
-    addUnifiedField
+    addUnifiedField,
+    selectedUnifiedFieldId,
+    selectUnifiedField,
+    deselectUnifiedField
   } = useFieldStore();
-  const { snapPosition } = useGridSnap(pageSize.height);
+  const { snapPosition } = useGridSnap(naturalPageSize.height);
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
   
   // Handle double-click on unified fields
@@ -122,15 +126,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
     }
   };
 
-  const handleFitToPage = () => {
-    if (containerRef.current && pageSize.width && pageSize.height) {
-      const containerWidth = containerRef.current.clientWidth - 64;
-      const containerHeight = containerRef.current.clientHeight - 64;
-      const scaleX = containerWidth / pageSize.width;
-      const scaleY = containerHeight / pageSize.height;
-      setScale(Math.min(scaleX, scaleY, 2));
-    }
-  };
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -139,7 +134,9 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
 
   const onPageLoadSuccess = (page: { width: number; height: number }) => {
     const { width, height } = page;
+    // Store both scaled and natural (unscaled) dimensions
     setPageSize({ width, height });
+    setNaturalPageSize({ width: width / scale, height: height / scale });
   };
 
   const currentPageActions = getAllActionsForPage(currentPage);
@@ -157,7 +154,6 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onFitToWidth={handleFitToWidth}
-          onFitToPage={handleFitToPage}
         />
         
         <div 
@@ -177,6 +173,12 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
               ref={pdfRef}
               className="relative bg-white shadow-lg"
               style={{ minHeight: 'min-content' }}
+              onClick={(e) => {
+                // Deselect field if clicked on background
+                if (e.target === e.currentTarget || e.target === pdfRef.current) {
+                  deselectUnifiedField();
+                }
+              }}
             >
               <PdfCanvas
                 url={pdfUrl}
@@ -189,8 +191,8 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
               <PdfDropTarget
                 currentPage={currentPage}
                 scale={scale}
-                pageWidth={pageSize.width}
-                pageHeight={pageSize.height}
+                pageWidth={naturalPageSize.width}
+                pageHeight={naturalPageSize.height}
                 onFieldDrop={handleFieldDrop}
                 className="absolute inset-0"
               >
@@ -206,11 +208,11 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                 {useUnifiedFields ? (
                   <UnifiedFieldOverlay
                     fields={unifiedFields}
-                    selectedFieldId={selectedFieldKey}
+                    selectedFieldId={selectedUnifiedFieldId}
                     currentPage={currentPage}
                     scale={scale}
-                    pageWidth={pageSize.width}
-                    pageHeight={pageSize.height}
+                    pageWidth={naturalPageSize.width}
+                    pageHeight={naturalPageSize.height}
                     onFieldDoubleClick={handleUnifiedFieldDoubleClick}
                   />
                 ) : (
@@ -229,8 +231,8 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                 
                 {isPickingPosition && (
                   <PositionPickerOverlay
-                    pageWidth={pageSize.width}
-                    pageHeight={pageSize.height}
+                    pageWidth={naturalPageSize.width}
+                    pageHeight={naturalPageSize.height}
                     scale={scale}
                     onPositionClick={(x, y) => {
                       // Get the actual field size that will be rendered
@@ -256,9 +258,9 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                       // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
                       // Now storing Y as distance from PDF bottom to field's TOP edge
                       const pdfX = centeredScreenX;
-                      const pdfY = pageSize.height - centeredScreenY; // Top edge position
+                      const pdfY = naturalPageSize.height - centeredScreenY; // Top edge position
                       
-                      // Apply grid snapping if enabled (pass field size for proper Y conversion)
+                      // Apply grid snapping if enabled
                       const finalPosition = gridEnabled 
                         ? snapPosition({ x: pdfX, y: pdfY })
                         : { x: pdfX, y: pdfY };

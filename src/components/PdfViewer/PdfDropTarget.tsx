@@ -74,8 +74,9 @@ export function PdfDropTarget({
       const centeredScreenX = screenX - (fieldSize.width / 2);
       const centeredScreenY = screenY - (fieldSize.height / 2);
 
-      // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
+      // Convert screen coordinates to PDF coordinates (Y-axis is inverted) 
       // Store Y as distance from PDF bottom to field's TOP edge
+      // NOTE: pageHeight here should be the NATURAL page height, not scaled
       const pdfX = centeredScreenX;
       const pdfY = pageHeight - centeredScreenY; // Top edge position
 
