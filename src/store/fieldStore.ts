@@ -702,6 +702,18 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     const existingFields = get().unifiedFields;
     const generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
     
+    // Set default sample value based on field type
+    const defaultSampleValue = (() => {
+      if (fieldData.sampleValue !== undefined) return fieldData.sampleValue;
+      switch(fieldType) {
+        case 'text': return 'Sample Text';
+        case 'checkbox': return false;
+        case 'image': return null;
+        case 'signature': return null;
+        default: return 'Sample Text';
+      }
+    })();
+    
     const newField: UnifiedField = {
       id,
       key: fieldData.key || generatedKey,
@@ -714,6 +726,7 @@ export const useFieldStore = create<FieldState>((set, get) => ({
       structure: 'simple',
       placementCount: 1,
       positionVersion: 'top-edge', // New fields use top-edge positioning
+      sampleValue: defaultSampleValue,
       ...fieldData
     };
     set((state) => ({

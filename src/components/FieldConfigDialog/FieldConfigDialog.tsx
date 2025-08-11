@@ -9,6 +9,7 @@ import { ImageUpload } from '@/components/ImageUpload/ImageUpload';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { toast } from 'sonner';
+import { sanitizeFieldKey, isValidFieldKey } from '@/lib/keyValidation';
 
 interface FieldConfigDialogProps {
   field: UnifiedField | null;
@@ -130,7 +131,19 @@ export function FieldConfigDialog({
             <Input
               id="field-key"
               value={fieldKey}
-              onChange={(e) => setFieldKey(e.target.value)}
+              onChange={(e) => {
+                const sanitized = sanitizeFieldKey(e.target.value);
+                setFieldKey(sanitized);
+              }}
+              onBlur={() => {
+                if (fieldKey && !isValidFieldKey(fieldKey)) {
+                  const sanitized = sanitizeFieldKey(fieldKey);
+                  setFieldKey(sanitized);
+                  if (!sanitized) {
+                    toast.error('Invalid field key format');
+                  }
+                }
+              }}
               placeholder={`e.g., ${field.type}_1`}
               autoFocus
             />

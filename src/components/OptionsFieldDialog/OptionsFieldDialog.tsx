@@ -28,6 +28,7 @@ import {
   Check
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { sanitizeFieldKey, isValidFieldKey } from '@/lib/keyValidation';
 import { cn } from '@/lib/utils';
 
 interface OptionsFieldDialogProps {
@@ -65,7 +66,8 @@ export function OptionsFieldDialog({
 }: OptionsFieldDialogProps) {
   const { 
     addUnifiedField, 
-    updateUnifiedField, 
+    updateUnifiedField,
+    deleteUnifiedField, 
     getUnifiedFieldById,
     unifiedFields,
     currentPage 
@@ -122,10 +124,9 @@ export function OptionsFieldDialog({
       // Check if placement is complete
       const allPlaced = placementStateRef.optionMappings.every(m => m.placed);
       if (allPlaced) {
-        // Auto-save if all options are placed
-        setTimeout(() => {
-          handleSave();
-        }, 100);
+        // Don't auto-save - field is already created and updated during placement
+        // Just show success message
+        toast.success('All options placed successfully! You can now close the dialog.');
       }
       
       // Clear the state
@@ -241,10 +242,11 @@ export function OptionsFieldDialog({
     
     // Auto-scroll to show the new option
     setTimeout(() => {
-      if (optionsListRef.current) {
-        optionsListRef.current.scrollTop = optionsListRef.current.scrollHeight;
+      const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
-    }, 50);
+    }, 100);
   };
 
   const handleRemoveOption = (key: string) => {
@@ -462,9 +464,9 @@ export function OptionsFieldDialog({
       return;
     }
     
-    // If field was created during placement, just close the dialog
+    // If field was created during placement, don't create another one
     // The field is already in the store with all the correct data
-    if (placementStateRef && placementStateRef.editingFieldId) {
+    if (placementStateRef && placementStateRef.editingFieldId && !editingFieldId) {
       // Final update to ensure everything is saved
       const fieldData = {
         key: fieldKey.trim(),
@@ -600,10 +602,18 @@ export function OptionsFieldDialog({
                 id="field-key"
                 value={fieldKey}
                 onChange={(e) => {
-                  const cleaned = e.target.value
-                    .replace(/\s+/g, '_')
-                    .replace(/[^a-zA-Z0-9_-]/g, '');
-                  setFieldKey(cleaned);
+                  const sanitized = sanitizeFieldKey(e.target.value);
+                  setFieldKey(sanitized);
+                }}
+                onBlur={() => {
+                  // Ensure key follows pattern on blur
+                  if (fieldKey && !isValidFieldKey(fieldKey)) {
+                    const sanitized = sanitizeFieldKey(fieldKey);
+                    setFieldKey(sanitized);
+                    if (!sanitized) {
+                      toast.error('Invalid field key. Must start with a letter and contain only letters, numbers, underscores, and hyphens.');
+                    }
+                  }
                 }}
                 placeholder="e.g., options_1"
                 className="font-mono"
@@ -749,21 +759,40 @@ export function OptionsFieldDialog({
         </ScrollArea>
 
         <DialogFooter className="px-6 py-4 border-t">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              onOpenChange(false);
-              resetDialog();
-            }}
-          >
-            Cancel
-          </Button>
-          
-          {canStartPlacement && (
-            <Button 
-              onClick={handleStartPlacement}
-              className="gap-2"
-            >
+          <div className="flex justify-between w-full">
+            <div>
+              {editingFieldId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this options field?')) {
+                      deleteUnifiedField(editingFieldId);
+                      toast.success('Options field deleted');
+                      onOpenChange(false);
+                      resetDialog();
+                    }
+                  }}
+                >
+                  Delete Field
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  onOpenChange(false);
+                  resetDialog();
+                }}
+              >
+                Cancel
+              </Button>
+              
+              {canStartPlacement && (
+                <Button 
+                  onClick={handleStartPlacement}
+                  className="gap-2"
+                >
               <MousePointer className="h-4 w-4" />
               Start Placement
             </Button>
@@ -774,6 +803,8 @@ export function OptionsFieldDialog({
               Save Field
             </Button>
           )}
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
