@@ -25,7 +25,7 @@ npm run lint         # Run ESLint
 ### Core Technologies
 - **Build Tool**: Vite with React plugin
 - **Framework**: React 19 with TypeScript
-- **Routing**: React Router v7 (main app at `/`, dev tools at `/dev`)
+- **Routing**: React Router v7 (main app at `/`, import config at `/import-config`)
 - **State Management**: Zustand (see `src/store/fieldStore.ts`)
 - **UI Components**: Radix UI primitives + shadcn/ui components
 - **Styling**: Tailwind CSS with custom theme
@@ -121,10 +121,10 @@ const pdfData = {
 - Toggle grid visibility and snapping independently
 - Grid state persisted in field store
 
-## Development Routes
+## Application Routes
 
 - `/` - Main PDF editor application
-- `/dev` - Development tools and field mapping table experiments
+- `/import-config` - Import configuration page for advanced field mapping
 
 ## Important Implementation Details
 
@@ -136,7 +136,7 @@ const pdfData = {
 
 ## Testing Approach
 
-No test framework currently configured. The codebase includes development pages (`/dev`) for testing components in isolation.
+No test framework currently configured.
 
 ## Common Tasks
 
