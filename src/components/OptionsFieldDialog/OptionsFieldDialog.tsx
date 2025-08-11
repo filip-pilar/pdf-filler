@@ -110,9 +110,10 @@ export function OptionsFieldDialog({
     return `options_${nextNumber}`;
   };
 
-  // Restore state if we're coming back from placement
+  // Restore state if we're coming back from placement or load field for editing
   useEffect(() => {
-    if (open && placementStateRef) {
+    if (open && placementStateRef && placementStateRef.editingFieldId === editingFieldId) {
+      // Only restore if it's for the same field we're editing
       // Restore state from placement
       setFieldKey(placementStateRef.fieldKey);
       setPlacementMode(placementStateRef.placementMode);
@@ -169,8 +170,16 @@ export function OptionsFieldDialog({
         }
       }
     } else if (open && !editingFieldId) {
-      // New field - generate key
+      // New field - reset everything and generate key
+      placementStateRef = null; // Clear any old placement state
       setFieldKey(generateFieldKey());
+      setNewOptionKey('');
+      setPlacementMode('separate');
+      setRenderType('checkmark');
+      setOptionMappings([]);
+      setCurrentPlacingIndex(-1);
+      setCombinedPosition(null);
+      setIsPlacingOptions(false);
     }
   }, [editingFieldId, open]);
 
@@ -257,6 +266,45 @@ export function OptionsFieldDialog({
     setOptionMappings(optionMappings.map(m => 
       m.key === key ? { ...m, customText: text } : m
     ));
+  };
+
+  const handleRepositionOption = (optionKey: string) => {
+    // Find the option to reposition
+    const optionIndex = optionMappings.findIndex(m => m.key === optionKey);
+    if (optionIndex === -1) return;
+    
+    const option = optionMappings[optionIndex];
+    
+    // Save state for when we return
+    placementStateRef = {
+      fieldKey,
+      placementMode: 'separate', // Always separate for repositioning single option
+      renderType,
+      optionMappings,
+      currentPlacingIndex: optionIndex,
+      combinedPosition,
+      editingFieldId: editingFieldId || undefined
+    };
+    
+    // Close dialog and start position picker
+    onOpenChange(false);
+    shouldReopenRef.current = true;
+    setIsPlacingOptions(true);
+    setCurrentPlacingIndex(optionIndex);
+    
+    toast.info(`Click to reposition option: ${option.key}`);
+    startPicking({
+      actionId: `reposition-${option.key}`,
+      content: renderType === 'checkmark' ? '✓' : (renderType === 'custom' ? option.customText || option.key : option.key),
+      optionLabel: `Reposition ${option.key}`,
+      actionType: renderType === 'checkmark' ? 'checkmark' : 'text',
+      onComplete: () => {},
+      onCancel: () => {
+        setIsPlacingOptions(false);
+        toast.error('Repositioning cancelled');
+        onOpenChange(true);
+      }
+    });
   };
 
   const handleStartPlacement = () => {
@@ -409,39 +457,74 @@ export function OptionsFieldDialog({
         toast.success(`Option "${placementStateRef.optionMappings[currentIndex].key}" placed`);
       }
       
-      // Move to next option or finish
-      const nextIndex = currentIndex + 1;
-      if (nextIndex < placementStateRef.optionMappings.length) {
-        placementStateRef.currentPlacingIndex = nextIndex;
-        setCurrentPlacingIndex(nextIndex); // Update React state too
-        const nextOption = placementStateRef.optionMappings[nextIndex];
-        const totalOptions = placementStateRef.optionMappings.length;
-        toast.info(`Click to place option ${nextIndex + 1} of ${totalOptions}: ${nextOption.key}`);
-        
-        // Need to restart picking for the next option
-        setTimeout(() => {
-          startPicking({
-            actionId: `options-field-${nextOption.key}`,
-            content: placementStateRef.renderType === 'checkmark' ? '✓' : nextOption.key,
-            optionLabel: `${placementStateRef.fieldKey} (${nextIndex + 1}/${totalOptions})`,
-            actionType: placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text',
-            onComplete: () => {},
-            onCancel: () => {
-              setIsPlacingOptions(false);
-              toast.error('Placement cancelled');
-              onOpenChange(true);
-            }
-          });
-        }, 100); // Small delay to ensure state updates
-      } else {
+      // Check if this was a repositioning action (not part of initial placement)
+      const isRepositioning = placementStateRef.optionMappings.filter(m => !m.placed).length === 0;
+      
+      if (isRepositioning) {
+        // Single reposition done, go back to dialog
         setIsPlacingOptions(false);
         setCurrentPlacingIndex(-1);
-        toast.success('All options placed successfully!');
+        toast.success(`Option "${placementStateRef.optionMappings[currentIndex].key}" repositioned!`);
         
         // Reopen dialog
         setTimeout(() => {
           onOpenChange(true);
         }, 500);
+      } else {
+        // Continue with placement sequence
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < placementStateRef.optionMappings.length && !placementStateRef.optionMappings[nextIndex].placed) {
+          // Find next unplaced option
+          let nextUnplacedIndex = nextIndex;
+          while (nextUnplacedIndex < placementStateRef.optionMappings.length && placementStateRef.optionMappings[nextUnplacedIndex].placed) {
+            nextUnplacedIndex++;
+          }
+          
+          if (nextUnplacedIndex < placementStateRef.optionMappings.length) {
+            placementStateRef.currentPlacingIndex = nextUnplacedIndex;
+            setCurrentPlacingIndex(nextUnplacedIndex);
+            const nextOption = placementStateRef.optionMappings[nextUnplacedIndex];
+            const totalOptions = placementStateRef.optionMappings.length;
+            const unplacedCount = placementStateRef.optionMappings.filter(m => !m.placed).length;
+            toast.info(`Click to place option: ${nextOption.key} (${unplacedCount} remaining)`);
+            
+            // Need to restart picking for the next option
+            setTimeout(() => {
+              startPicking({
+                actionId: `options-field-${nextOption.key}`,
+                content: placementStateRef.renderType === 'checkmark' ? '✓' : (placementStateRef.renderType === 'custom' ? nextOption.customText || nextOption.key : nextOption.key),
+                optionLabel: `${placementStateRef.fieldKey} (${totalOptions - unplacedCount + 1}/${totalOptions})`,
+                actionType: placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text',
+                onComplete: () => {},
+                onCancel: () => {
+                  setIsPlacingOptions(false);
+                  toast.error('Placement cancelled');
+                  onOpenChange(true);
+                }
+              });
+            }, 100);
+          } else {
+            // All done
+            setIsPlacingOptions(false);
+            setCurrentPlacingIndex(-1);
+            toast.success('All options placed successfully!');
+            
+            // Reopen dialog
+            setTimeout(() => {
+              onOpenChange(true);
+            }, 500);
+          }
+        } else {
+          // All done
+          setIsPlacingOptions(false);
+          setCurrentPlacingIndex(-1);
+          toast.success('All options placed successfully!');
+          
+          // Reopen dialog
+          setTimeout(() => {
+            onOpenChange(true);
+          }, 500);
+        }
       }
     }
   };
@@ -554,6 +637,7 @@ export function OptionsFieldDialog({
   };
 
   const resetDialog = () => {
+    // Always reset for new fields, keep data only when explicitly editing
     if (!editingFieldId) {
       setFieldKey('');
       setNewOptionKey('');
@@ -634,7 +718,10 @@ export function OptionsFieldDialog({
                   <RadioGroupItem value="checkmark" id="checkmark" />
                   <Label htmlFor="checkmark" className="flex items-center gap-2 cursor-pointer">
                     <CheckSquare className="h-4 w-4" />
-                    Checkmark (shows ✓)
+                    <span>
+                      <span className="font-medium">Checkmark</span>
+                      <span className="text-xs text-muted-foreground ml-1">(shows ✓ when selected)</span>
+                    </span>
                   </Label>
                 </div>
                 
@@ -642,7 +729,10 @@ export function OptionsFieldDialog({
                   <RadioGroupItem value="text" id="text" />
                   <Label htmlFor="text" className="flex items-center gap-2 cursor-pointer">
                     <Type className="h-4 w-4" />
-                    Text Value (shows the option text)
+                    <span>
+                      <span className="font-medium">Option Key</span>
+                      <span className="text-xs text-muted-foreground ml-1">(displays the option key directly)</span>
+                    </span>
                   </Label>
                 </div>
                 
@@ -650,7 +740,10 @@ export function OptionsFieldDialog({
                   <RadioGroupItem value="custom" id="custom" />
                   <Label htmlFor="custom" className="flex items-center gap-2 cursor-pointer">
                     <FileText className="h-4 w-4" />
-                    Custom Text (define custom text per option)
+                    <span>
+                      <span className="font-medium">Custom Text</span>
+                      <span className="text-xs text-muted-foreground ml-1">(map each option to custom text)</span>
+                    </span>
                   </Label>
                 </div>
               </RadioGroup>
@@ -737,7 +830,18 @@ export function OptionsFieldDialog({
                         )}
                         
                         {mapping.placed && (
-                          <Check className="h-4 w-4 text-green-600 shrink-0" />
+                          <>
+                            <Check className="h-4 w-4 text-green-600 shrink-0" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRepositionOption(mapping.key)}
+                              className="h-8 w-8 p-0 shrink-0"
+                              title="Reposition this option"
+                            >
+                              <MapPin className="h-3 w-3" />
+                            </Button>
+                          </>
                         )}
                         
                         <Button
