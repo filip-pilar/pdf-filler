@@ -42,6 +42,7 @@ interface OptionMapping {
   key: string;
   position?: { x: number; y: number };
   customText?: string;
+  sampleValue?: string;  // Sample value to show when renderType is 'text'
   placed?: boolean;
 }
 
@@ -115,8 +116,10 @@ export function OptionsFieldDialog({
 
   // Restore state if we're coming back from placement or load field for editing
   useEffect(() => {
-    if (open && placementStateRef && placementStateRef.editingFieldId === editingFieldId) {
-      // Only restore if it's for the same field we're editing
+    if (open && placementStateRef) {
+      // We have placement state - either continuing placement or just finished
+      const fieldIdToEdit = placementStateRef.editingFieldId || editingFieldId;
+      
       // Restore state from placement
       setFieldKey(placementStateRef.fieldKey);
       setPlacementMode(placementStateRef.placementMode);
@@ -128,13 +131,10 @@ export function OptionsFieldDialog({
       // Check if placement is complete
       const allPlaced = placementStateRef.optionMappings.every(m => m.placed);
       if (allPlaced) {
-        // Don't auto-save - field is already created and updated during placement
-        // Options are ready to save
+        // Placement complete - we're now effectively editing this field
+        // Keep the state but don't clear placementStateRef yet
       }
-      
-      // Clear the state
-      placementStateRef = null;
-    } else if (editingFieldId && open) {
+    } else if (editingFieldId && open && !placementStateRef) {
       // Load existing field if editing
       const field = getUnifiedFieldById(editingFieldId);
       
@@ -147,6 +147,7 @@ export function OptionsFieldDialog({
             key: m.key,
             position: m.position,
             customText: m.customText,
+            sampleValue: m.sampleValue,
             placed: true
           }));
           setOptionMappings(loadedMappings);
@@ -171,9 +172,8 @@ export function OptionsFieldDialog({
           }
         }
       }
-    } else if (open && !editingFieldId) {
+    } else if (open && !editingFieldId && !placementStateRef) {
       // New field - reset everything and generate key
-      placementStateRef = null; // Clear any old placement state
       setFieldKey(generateFieldKey());
       setNewOptionKey('');
       setPlacementMode('separate');
@@ -273,6 +273,12 @@ export function OptionsFieldDialog({
       m.key === key ? { ...m, customText: text } : m
     ));
   };
+  
+  const handleUpdateSampleValue = (key: string, value: string) => {
+    setOptionMappings(optionMappings.map(m => 
+      m.key === key ? { ...m, sampleValue: value } : m
+    ));
+  };
 
   const handleRepositionOption = (optionKey: string) => {
     // Find the option to reposition
@@ -300,7 +306,7 @@ export function OptionsFieldDialog({
     
     startPicking({
       actionId: `reposition-${option.key}`,
-      content: renderType === 'checkmark' ? '✓' : (renderType === 'custom' ? option.customText || option.key : option.key),
+      content: renderType === 'checkmark' ? '✓' : (renderType === 'custom' ? option.customText || option.key : (option.sampleValue || option.key)),
       optionLabel: `Reposition ${option.key}`,
       actionType: renderType === 'checkmark' ? 'checkmark' : 'text',
       onComplete: () => {},
@@ -322,6 +328,7 @@ export function OptionsFieldDialog({
         position: m.position || { x: 100, y: 100 }, // Default position if not placed
         renderType: renderType,
         customText: renderType === 'custom' ? m.customText : undefined,
+        sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
           : { width: 100, height: 30 }
@@ -381,7 +388,7 @@ export function OptionsFieldDialog({
       const firstOption = optionMappings[0];
       startPicking({
         actionId: `options-field-${firstOption.key}`,
-        content: renderType === 'checkmark' ? '✓' : firstOption.key,
+        content: renderType === 'checkmark' ? '✓' : (renderType === 'custom' ? firstOption.customText || firstOption.key : (firstOption.sampleValue || firstOption.key)),
         optionLabel: `${fieldKey} (1/${optionMappings.length})`,
         actionType: renderType === 'checkmark' ? 'checkmark' : 'text',
         onComplete: () => {},
@@ -414,6 +421,7 @@ export function OptionsFieldDialog({
             position: m.position!,
             renderType: placementStateRef.renderType,
             customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
+            sampleValue: placementStateRef.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
             size: placementStateRef.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
@@ -446,6 +454,7 @@ export function OptionsFieldDialog({
             position: m.position || { x: 100, y: 100 },
             renderType: placementStateRef.renderType,
             customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
+            sampleValue: placementStateRef.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
             size: placementStateRef.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
@@ -487,7 +496,7 @@ export function OptionsFieldDialog({
             setTimeout(() => {
               startPicking({
                 actionId: `options-field-${nextOption.key}`,
-                content: placementStateRef.renderType === 'checkmark' ? '✓' : (placementStateRef.renderType === 'custom' ? nextOption.customText || nextOption.key : nextOption.key),
+                content: placementStateRef.renderType === 'checkmark' ? '✓' : (placementStateRef.renderType === 'custom' ? nextOption.customText || nextOption.key : (nextOption.sampleValue || nextOption.key)),
                 optionLabel: `${placementStateRef.fieldKey} (${totalOptions - unplacedCount + 1}/${totalOptions})`,
                 actionType: placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text',
                 onComplete: () => {},
@@ -562,6 +571,7 @@ export function OptionsFieldDialog({
           position: m.position!,
           renderType: renderType,
           customText: renderType === 'custom' ? m.customText : undefined,
+          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
           size: renderType === 'checkmark' 
             ? { width: 25, height: 25 }
             : { width: 100, height: 30 }
@@ -588,6 +598,7 @@ export function OptionsFieldDialog({
           position: m.position!,
           renderType: renderType,
           customText: renderType === 'custom' ? m.customText : undefined,
+          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
           size: renderType === 'checkmark' 
             ? { width: 25, height: 25 }
             : { width: 100, height: 30 }
@@ -614,6 +625,7 @@ export function OptionsFieldDialog({
           position: m.position!,
           renderType: renderType,
           customText: renderType === 'custom' ? m.customText : undefined,
+          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
           size: renderType === 'checkmark' 
             ? { width: 25, height: 25 }
             : { width: 100, height: 30 }
@@ -636,8 +648,10 @@ export function OptionsFieldDialog({
   };
 
   const resetDialog = () => {
-    // Always reset for new fields, keep data only when explicitly editing
-    if (!editingFieldId) {
+    // Only reset if we're not continuing to edit a field we just created
+    const shouldKeepState = placementStateRef?.editingFieldId && !editingFieldId;
+    
+    if (!shouldKeepState && !editingFieldId) {
       setFieldKey('');
       setNewOptionKey('');
       setPlacementMode('separate');
@@ -731,8 +745,8 @@ export function OptionsFieldDialog({
                   <Label htmlFor="text" className="flex items-center gap-2 cursor-pointer">
                     <Type className="h-4 w-4" />
                     <span>
-                      <span className="font-medium">Option Key</span>
-                      <span className="text-xs text-muted-foreground ml-1">(displays the option key directly)</span>
+                      <span className="font-medium">Option Value</span>
+                      <span className="text-xs text-muted-foreground ml-1">(displays the data value for this option)</span>
                     </span>
                   </Label>
                 </div>
@@ -830,6 +844,15 @@ export function OptionsFieldDialog({
                             value={mapping.customText || ''}
                             onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
                             placeholder="Custom text..."
+                            className="flex-1 h-8 text-sm"
+                          />
+                        )}
+                        
+                        {renderType === 'text' && (
+                          <Input
+                            value={mapping.sampleValue || ''}
+                            onChange={(e) => handleUpdateSampleValue(mapping.key, e.target.value)}
+                            placeholder={`Sample value for ${mapping.key}...`}
                             className="flex-1 h-8 text-sm"
                           />
                         )}

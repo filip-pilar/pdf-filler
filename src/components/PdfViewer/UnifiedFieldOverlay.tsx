@@ -47,6 +47,12 @@ export function UnifiedFieldOverlay({
                   ...field,
                   position: mapping.position,
                   size: mapping.size || field.size,
+                  // Pass the sample value or custom text based on render type
+                  sampleValue: mapping.renderType === 'custom' 
+                    ? mapping.customText 
+                    : mapping.renderType === 'text' 
+                      ? mapping.sampleValue 
+                      : undefined
                 }}
                 scale={scale}
                 pageWidth={pageWidth}

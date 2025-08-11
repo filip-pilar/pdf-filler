@@ -236,6 +236,33 @@ export function DraggableUnifiedField({
     const value = field.sampleValue || '';
     const fontSize = field.properties?.fontSize || 14;
     
+    // For options fields, check the renderType first
+    if (renderType) {
+      switch (renderType) {
+        case 'checkmark':
+          return (
+            <div className="flex items-center justify-center h-full">
+              <span 
+                className="text-black font-bold"
+                style={{ fontSize: `${Math.min(fieldHeight * 0.7, 20)}px` }}
+              >
+                ✓
+              </span>
+            </div>
+          );
+        case 'custom':
+        case 'text':
+          return (
+            <div 
+              className="px-1 text-gray-700 overflow-hidden flex items-center h-full"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              <span className="truncate">{value || optionKey || 'Option'}</span>
+            </div>
+          );
+      }
+    }
+    
     switch (field.type) {
       case 'checkbox': {
         const checkboxSize = resizingSize?.width || field.properties?.checkboxSize || field.size?.width || 20;
