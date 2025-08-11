@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
-import { useDrag } from 'react-dnd';
-import { getEmptyImage } from 'react-dnd-html5-backend';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { useFieldStore } from '@/store/fieldStore';
 import type { FieldType } from '@/types/field.types';
 import { cn } from '@/lib/utils';
@@ -20,22 +19,32 @@ export function DraggableFieldItem({ type, label, icon: Icon }: DraggableFieldIt
   const { pdfUrl } = useFieldStore();
   const isDisabled = !pdfUrl;
 
-  const [{ isDragging }, drag, preview] = useDrag(() => ({
-    type: 'NEW_FIELD',
-    item: { type: 'NEW_FIELD', fieldType: type } as DragItem,
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-    canDrag: !isDisabled,
-  }), [isDisabled]);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `new-field-${type}`,
+    data: {
+      type: 'NEW_FIELD',
+      fieldType: type,
+    },
+    disabled: isDisabled,
+  });
 
-  useEffect(() => {
-    preview(getEmptyImage(), { captureDraggingState: true });
-  }, [preview]);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    opacity: isDragging ? 0 : 1,
+  };
 
   return (
     <div
-      ref={!isDisabled ? (drag as unknown as React.RefObject<HTMLDivElement>) : null}
+      ref={setNodeRef}
+      style={style}
+      {...(!isDisabled ? listeners : {})}
+      {...(!isDisabled ? attributes : {})}
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-md transition-all",
         isDisabled ? (
@@ -45,15 +54,11 @@ export function DraggableFieldItem({ type, label, icon: Icon }: DraggableFieldIt
         ),
         "border border-transparent",
         !isDisabled && "hover:border-border",
-        isDragging && "opacity-0"
       )}
       title={isDisabled ? "Load a PDF first to add fields" : `Drag to add ${label} field`}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
       <span className="text-sm">{label}</span>
-      {isDragging && (
-        <span className="ml-auto text-xs text-muted-foreground">Drop on PDF</span>
-      )}
     </div>
   );
 }

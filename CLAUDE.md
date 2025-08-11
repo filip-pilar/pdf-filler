@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PDF Filler is a React-based application for creating dynamic PDF forms with drag-and-drop field placement, data import/export capabilities, and sophisticated field logic. Built with Vite, TypeScript, React 19, and uses pdf-lib for PDF manipulation.
+PDF Filler is a React-based application for creating dynamic PDF forms with drag-and-drop field placement, data import/export capabilities, and field mapping. Built with Vite, TypeScript, React 19, and uses pdf-lib for PDF manipulation.
 
 ## Development Commands
 
@@ -32,49 +32,91 @@ npm run lint         # Run ESLint
 - **PDF Handling**: pdf-lib for manipulation, react-pdf for rendering
 - **Drag & Drop**: react-dnd with HTML5 backend
 
-### Key Architectural Patterns
+### Field System Architecture
 
-1. **Field System**: Three distinct field types managed in parallel:
-   - **Regular Fields** (`Field`): Text, checkbox, radio, image, signature fields
-   - **Logic Fields** (`LogicField`): Dropdown/select fields with conditional actions
-   - **Boolean Fields** (`BooleanField`): Binary choice fields with true/false actions
+The application uses a **Unified Field Model** that handles all field types:
 
-2. **Import/Export Pipeline**:
-   - **Parsers** (`src/parsers/`): Convert SQL, JSON, TypeScript to field definitions
-   - **Exporters** (`src/exporters/`): Generate JavaScript, JSON, Next.js API, filled PDFs
+1. **UnifiedField** - Single model for all field types with variants:
+   - **Single variant**: Standard fields placed at one position (text, checkbox, image, signature)
+   - **Options variant**: Fields with multiple selectable options (like radio buttons or checkboxes)
 
-3. **Component Organization**:
-   - UI primitives in `src/components/ui/` (auto-generated from shadcn)
-   - Feature components grouped by domain (e.g., `PdfViewer/`, `ImportModal/`)
-   - Shared hooks in `src/hooks/`
+2. **Key-Only Approach**: No labels in the data model - fields work with data keys from imported schemas
+
+3. **Field Types**:
+   - `text`: Text input fields
+   - `checkbox`: Checkbox fields (boolean true/false)
+   - `image`: Image fields
+   - `signature`: Signature fields
+   - Options fields support both checkmark and text rendering
+
+### Import/Export Pipeline
+
+- **Parsers** (`src/parsers/`): Convert SQL, JSON, TypeScript to field definitions
+- **Exporters** (`src/exporters/`): Generate JavaScript, JSON, Next.js API, filled PDFs
+- **Smart Detection**: Automatically detects field types and structures from imported data
+
+### Component Organization
+
+- UI primitives in `src/components/ui/` (auto-generated from shadcn)
+- Feature components grouped by domain (e.g., `PdfViewer/`, `ImportModal/`)
+- Shared hooks in `src/hooks/`
 
 ### State Management (Zustand Store)
 
 The central `fieldStore` manages:
-- Field collections (regular, logic, boolean)
+- Unified field collection
 - PDF file and pagination state
 - Grid snap settings
-- Complex operations like field actions and option management
+- Migration flag (`useUnifiedFields`) for gradual transition
 
 Key store methods:
-- Field CRUD: `addField`, `updateField`, `deleteField`, `duplicateField`
-- Logic fields: `addLogicField`, `updateLogicField`, with nested option/action management
-- Boolean fields: `addBooleanField` with true/false action branches
+- Unified fields: `addUnifiedField`, `updateUnifiedField`, `deleteUnifiedField`
+- Query: `getUnifiedFieldById`, `getUnifiedFieldByKey`
 - PDF operations: `setPdfFile`, `setPdfUrl`, `setCurrentPage`
 
 ### Path Aliases
 
 Uses `@/` alias for `./src/` directory (configured in both TypeScript and Vite).
 
-## Field Type Architecture
+## Options Field System
 
-### Field Positioning & Actions
-- Fields have page-specific positions with x/y coordinates
-- Logic fields can trigger actions on specific options (show/hide other fields, set values)
-- Boolean fields have separate action sets for true/false states
-- Actions can target other fields by key and modify their visibility or values
+Options fields handle scenarios where users need to map multiple possible values to PDF positions:
 
-### Grid System
+### Key Concepts
+- **Option Mappings**: Define where each option value appears on the PDF
+- **Placement Modes**:
+  - **Separate**: Each option at its own position (like radio buttons)
+  - **Combined**: All selected options appear at one position as a list
+- **Render Types**:
+  - **Checkmark**: Shows ✓ for selected options
+  - **Text Value**: Shows the actual value
+  - **Custom Text**: Shows user-defined text for each option
+
+### Data Flow
+1. User defines field key (e.g., "gender", "permissions")
+2. User adds option keys (e.g., "male", "female", "other")
+3. User places each option on the PDF
+4. At generation time, only selected values are rendered
+
+## Boolean Data Handling
+
+The system takes a pragmatic approach to boolean values:
+
+- **For checkbox fields**: Pass boolean directly (true shows ✓, false shows nothing)
+- **For text fields**: Transform booleans to desired text before passing to PDF generation
+- **No special boolean field type**: Users handle transformations in their data layer
+
+Example:
+```javascript
+// User's data transformation
+const pdfData = {
+  licenseStatus: data.hasLicense ? "Valid" : "Invalid",  // Boolean → Text
+  hasInsurance: data.insured,  // Boolean → Checkbox
+  membershipType: data.membership  // Options field
+};
+```
+
+## Grid System
 - Configurable grid sizes: 5px, 10px, 25px
 - Toggle grid visibility and snapping independently
 - Grid state persisted in field store
@@ -87,10 +129,10 @@ Uses `@/` alias for `./src/` directory (configured in both TypeScript and Vite).
 ## Important Implementation Details
 
 1. **PDF Coordinate System**: PDF uses bottom-left origin, component converts to top-left for UI
-2. **Field Keys**: Unique identifiers used for data binding and cross-field references
-3. **Drag Preview**: Custom drag preview components for better UX during field placement
-4. **Position Picker**: Overlay mode for precise field positioning with click-to-place
-5. **Keyboard Shortcuts**: Implemented via `useKeyboardShortcuts` hook
+2. **Field Keys**: Must be valid identifiers (alphanumeric, underscore, hyphen only)
+3. **Position Picker**: Click-to-place interface for precise field positioning
+4. **Drag & Drop**: Support for dragging fields from palette and repositioning on PDF
+5. **Key Validation**: Automatic cleaning of field keys (spaces → underscores, special chars removed)
 
 ## Testing Approach
 
@@ -100,15 +142,21 @@ No test framework currently configured. The codebase includes development pages 
 
 ### Adding New Field Types
 1. Update `FieldType` in `src/types/field.types.ts`
-2. Add rendering logic in `src/components/PdfViewer/FieldOverlay.tsx`
+2. Add rendering logic in `src/components/PdfViewer/UnifiedFieldOverlay.tsx`
 3. Update exporters in `src/exporters/`
-4. Add drag component if needed
+4. Add appropriate icon in `UnifiedFieldsList.tsx`
 
-### Creating New UI Components
-1. Check existing shadcn/ui components first
-2. Follow Radix UI patterns for accessibility
-3. Use Tailwind classes with theme variables
-4. Place in appropriate component subdirectory
+### Creating Options Fields
+1. Open Options Field Dialog
+2. Enter field key
+3. Choose display type (checkmark, text, custom)
+4. Choose placement strategy (separate positions or combined)
+5. Add option keys
+6. Click "Start Placement" to position on PDF
 
 ### Working with PDF Coordinates
 Always convert between PDF coordinates (bottom-left origin) and screen coordinates (top-left origin) using the height of the page.
+
+## Migration Status
+
+The application is currently using the Unified Field Model (`useUnifiedFields: true` in store). The legacy field system (Field, LogicField, BooleanField) is deprecated and will be removed in future updates.

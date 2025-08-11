@@ -24,8 +24,9 @@ export function PdfNavigationBar({
   onFitToPage
 }: PdfNavigationBarProps) {
   return (
-    <Card className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 px-2 py-1">
-      <div className="flex items-center gap-1">
+    <div className="flex items-center justify-center bg-background border-b py-2 px-4">
+      <Card className="px-2 py-1">
+        <div className="flex items-center gap-1">
         <Button
           variant="ghost"
           size="icon"
@@ -97,7 +98,8 @@ export function PdfNavigationBar({
         >
           <Maximize2 className="h-4 w-4" />
         </Button>
-      </div>
-    </Card>
+        </div>
+      </Card>
+    </div>
   );
 }

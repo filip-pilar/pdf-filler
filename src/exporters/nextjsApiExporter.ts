@@ -100,7 +100,8 @@ function applyLogicFieldActions(
     // Skip if action is for a different page
     if (action.position.page !== logicField.page) continue;
     
-    const y = pageHeight - action.position.y - (action.size?.height || 20);
+    // Convert from top edge to bottom edge for PDF rendering
+    const y = action.position.y - (action.size?.height || 20);
     
     switch (action.type) {
       case 'checkmark':
@@ -236,8 +237,8 @@ export async function POST(request: NextRequest) {
       const page = pages[pageIndex];
       const { height } = page.getSize();
       
-      // Calculate Y position (PDF coordinates are bottom-up)
-      const y = height - field.position.y - field.size.height;
+      // Convert from top edge to bottom edge for PDF rendering
+      const y = field.position.y - field.size.height;
       
       // Draw field value based on type
       switch (field.type) {
@@ -366,7 +367,8 @@ export async function POST(request: NextRequest) {
           // Check if action is for current page (1-indexed)
           if (action.position.page !== pageIndex + 1) continue;
           
-          const y = height - action.position.y - (action.size?.height || 20);
+          // Convert from top edge to bottom edge for PDF rendering
+          const y = action.position.y - (action.size?.height || 20);
           
           switch (action.type) {
             case 'checkmark':

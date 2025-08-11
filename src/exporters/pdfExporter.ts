@@ -57,8 +57,9 @@ export async function exportFilledPDF(
       
       if (value === undefined || value === null || value === '') continue;
       
-      // Convert Y coordinate (PDF has origin at bottom-left)
-      const y = height - field.position.y - field.size.height;
+      // Convert Y coordinate from top edge to bottom edge for PDF rendering
+      // field.position.y now stores distance from PDF bottom to field's TOP edge
+      const y = field.position.y - field.size.height; // Convert to bottom edge for pdf-lib
       
       switch (field.type) {
         case 'checkbox': {
@@ -69,8 +70,8 @@ export async function exportFilledPDF(
             const checkX = field.position.x + (field.size.width - checkSize) / 2;
             const checkY = y + (field.size.height - checkSize) / 2;
             
-            // Draw an X mark instead of checkmark to avoid encoding issues
-            page.drawText('X', {
+            // Draw checkmark symbol
+            page.drawText('✓', {
               x: checkX,
               y: checkY,
               size: checkSize,

@@ -127,4 +127,29 @@
   .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+  
+  /* Field dragging state - blur everything except PDF area */
+  .dragging-active [data-sidebar="sidebar"],
+  .dragging-active [data-state="expanded"],
+  .dragging-active [data-state="collapsed"],
+  .dragging-active header,
+  .dragging-active .status-bar {
+    @apply blur-sm opacity-50 pointer-events-none transition-all duration-200;
+  }
+  
+  /* Also blur the sidebar trigger and toolbar */
+  .dragging-active button[data-sidebar="trigger"],
+  .dragging-active .toolbar {
+    @apply blur-sm opacity-50 pointer-events-none;
+  }
+  
+  /* Keep PDF area focused during drag */
+  .dragging-active .unified-field-drop-zone {
+    @apply transition-none;
+  }
+  
+  /* Ensure drag preview is always on top */
+  .dragging-active .drag-preview {
+    @apply z-[100];
+  }
 }

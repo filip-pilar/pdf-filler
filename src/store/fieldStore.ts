@@ -130,7 +130,7 @@ const generateFieldKey = (type: string, existingFields: Field[]): string => {
   const sameTypeKeys = existingFields
     .filter(f => f.type === type)
     .map(f => {
-      const match = f.key.match(new RegExp(`^${type}_key_([0-9]+)$`));
+      const match = f.key.match(new RegExp(`^${type}_(\d+)$`));
       return match ? parseInt(match[1]) : 0;
     });
   
@@ -138,7 +138,24 @@ const generateFieldKey = (type: string, existingFields: Field[]): string => {
   const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
   const nextNumber = maxNumber + 1;
   
-  return `${type}_key_${nextNumber}`;
+  return `${type}_${nextNumber}`;
+};
+
+// Generate simple field IDs for unified fields
+const generateUnifiedFieldKey = (type: string, existingFields: UnifiedField[]): string => {
+  // Extract numbers from existing keys for this type
+  const sameTypeKeys = existingFields
+    .filter(f => f.type === type)
+    .map(f => {
+      const match = f.key.match(new RegExp(`^${type}_(\d+)$`));
+      return match ? parseInt(match[1]) : 0;
+    });
+  
+  // Find the next available number
+  const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
+  const nextNumber = maxNumber + 1;
+  
+  return `${type}_${nextNumber}`;
 };
 
 
@@ -666,16 +683,21 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   addUnifiedField: (fieldData) => {
     const id = `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const fieldType = fieldData.type || 'text';
+    const existingFields = get().unifiedFields;
+    const generatedKey = generateUnifiedFieldKey(fieldType, existingFields);
+    
     const newField: UnifiedField = {
       id,
-      key: fieldData.key || `field_${id}`,
-      type: 'text',
+      key: fieldData.key || generatedKey,
+      type: fieldType,
       variant: 'single',
       page: 1,
       position: { x: 100, y: 100 },
       enabled: true,
       structure: 'simple',
       placementCount: 1,
+      positionVersion: 'top-edge', // New fields use top-edge positioning
       ...fieldData
     };
     set((state) => ({
@@ -698,7 +720,25 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     }));
   },
   
-  setUnifiedFields: (fields) => set({ unifiedFields: fields }),
+  setUnifiedFields: (fields) => {
+    // Migrate legacy fields to top-edge positioning
+    const migratedFields = fields.map(field => {
+      if (!field.positionVersion) {
+        // Legacy field - convert from bottom-edge to top-edge
+        const fieldHeight = field.size?.height || 30;
+        return {
+          ...field,
+          position: {
+            ...field.position,
+            y: field.position.y + fieldHeight // Convert to top edge
+          },
+          positionVersion: 'top-edge' as const
+        };
+      }
+      return field;
+    });
+    set({ unifiedFields: migratedFields });
+  },
   
   clearUnifiedFields: () => set({ unifiedFields: [] }),
   
@@ -712,7 +752,8 @@ export const useFieldStore = create<FieldState>((set, get) => ({
         position: {
           x: field.position.x + 20,
           y: field.position.y + 20
-        }
+        },
+        positionVersion: 'top-edge' // Ensure duplicated fields use top-edge
       };
       set((state) => ({
         unifiedFields: [...state.unifiedFields, newField]
@@ -728,19 +769,25 @@ export const useFieldStore = create<FieldState>((set, get) => ({
   
   // Migration operations
   convertFieldToUnified: (field) => {
+    // Convert legacy bottom-edge Y to top-edge Y
+    const fieldHeight = field.size?.height || 30;
     return {
       id: `unified_${field.key}_${Date.now()}`,
       key: field.key,
       type: field.type,
       variant: 'single',
       page: field.page,
-      position: field.position,
+      position: {
+        x: field.position.x,
+        y: field.position.y + fieldHeight // Convert to top edge
+      },
       size: field.size,
       enabled: true,
       structure: 'simple',
       placementCount: 1,
       sampleValue: field.sampleValue,
-      source: field.source
+      source: field.source,
+      positionVersion: 'top-edge' as const
     };
   },
   
@@ -748,18 +795,24 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     // Convert each option to a unified field
     return logicField.options.map(option => {
       const firstAction = option.actions[0];
+      const actionHeight = firstAction?.size?.height || 30;
+      const position = firstAction?.position || { x: 100, y: 100 };
       return {
         id: `unified_${logicField.key}_${option.key}_${Date.now()}`,
         key: `${logicField.key}_${option.key}`,
         type: 'text' as const,
         variant: 'single' as const,
         page: firstAction?.position.page || logicField.page || 1,
-        position: firstAction?.position || { x: 100, y: 100 },
+        position: {
+          x: position.x,
+          y: position.y + actionHeight // Convert to top edge
+        },
         size: firstAction?.size,
         enabled: true,
         structure: 'simple' as const,
         placementCount: 1,
-        sampleValue: option.label
+        sampleValue: option.label,
+        positionVersion: 'top-edge' as const
       };
     });
   },
@@ -770,36 +823,46 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     // Convert true actions
     if (booleanField.trueActions.length > 0) {
       const firstAction = booleanField.trueActions[0];
+      const actionHeight = firstAction.size?.height || 30;
       fields.push({
         id: `unified_${booleanField.key}_true_${Date.now()}`,
         key: `${booleanField.key}_true`,
         type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
         variant: 'single',
         page: firstAction.position.page,
-        position: firstAction.position,
+        position: {
+          x: firstAction.position.x,
+          y: firstAction.position.y + actionHeight // Convert to top edge
+        },
         size: firstAction.size,
         enabled: true,
         structure: 'simple',
         placementCount: 1,
-        sampleValue: firstAction.type === 'checkmark' ? true : firstAction.customText
+        sampleValue: firstAction.type === 'checkmark' ? true : firstAction.customText,
+        positionVersion: 'top-edge' as const
       });
     }
     
     // Convert false actions
     if (booleanField.falseActions.length > 0) {
       const firstAction = booleanField.falseActions[0];
+      const actionHeight = firstAction.size?.height || 30;
       fields.push({
         id: `unified_${booleanField.key}_false_${Date.now() + 1}`,
         key: `${booleanField.key}_false`,
         type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
         variant: 'single',
         page: firstAction.position.page,
-        position: firstAction.position,
+        position: {
+          x: firstAction.position.x,
+          y: firstAction.position.y + actionHeight // Convert to top edge
+        },
         size: firstAction.size,
         enabled: true,
         structure: 'simple',
         placementCount: 1,
-        sampleValue: firstAction.type === 'checkmark' ? false : firstAction.customText
+        sampleValue: firstAction.type === 'checkmark' ? false : firstAction.customText,
+        positionVersion: 'top-edge' as const
       });
     }
     

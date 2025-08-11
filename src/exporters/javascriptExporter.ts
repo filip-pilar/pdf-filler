@@ -133,7 +133,8 @@ function applyLogicFieldActions(page, logicField, selectedValue, fonts, pageHeig
   if (!selectedOption) return;
   
   for (const action of selectedOption.actions) {
-    const y = pageHeight - action.position.y - (action.size?.height || 20);
+    // Convert from top edge to bottom edge for PDF rendering
+    const y = action.position.y - (action.size?.height || 20);
     
     switch (action.type) {
       case 'checkmark':
@@ -239,7 +240,8 @@ app.post('/fill-pdf', async (c) => {
       
       const page = pages[pageIndex];
       const { height } = page.getSize();
-      const y = height - field.position.y - field.size.height;
+      // Convert from top edge to bottom edge for PDF rendering
+      const y = field.position.y - field.size.height;
       
       switch (field.type) {
         case 'checkbox':

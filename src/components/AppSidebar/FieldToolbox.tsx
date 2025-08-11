@@ -2,14 +2,19 @@ import { useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 import { DraggableFieldsList } from './DraggableFieldsList';
 import { PdfFieldsList } from './PdfFieldsList';
+import { UnifiedFieldsList } from './UnifiedFieldsList';
 import { AddLogicFieldButton } from './AddLogicFieldButton';
 import { AddBooleanFieldButton } from './AddBooleanFieldButton';
+import { AddOptionsFieldButton } from './AddOptionsFieldButton';
 import { FieldPropertiesDialog } from '@/components/FieldPropertiesDialog/FieldPropertiesDialog';
 import { LogicFieldDialog } from '@/components/LogicFieldDialog/LogicFieldDialog';
 import { BooleanFieldDialog } from '@/components/BooleanFieldDialog/BooleanFieldDialog';
+import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
+import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import type { Field } from '@/types/field.types';
 import type { LogicField } from '@/types/logicField.types';
 import type { BooleanField } from '@/types/booleanField.types';
+import type { UnifiedField } from '@/types/unifiedField.types';
 import {
   Sidebar,
   SidebarContent,
@@ -21,13 +26,17 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function FieldToolbox() {
-  const { fields, selectField, logicFields, addLogicField, booleanFields, addBooleanField, currentPage } = useFieldStore();
+  const { fields, selectField, logicFields, booleanFields, useUnifiedFields } = useFieldStore();
   const [fieldForDialog, setFieldForDialog] = useState<Field | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [showLogicFieldDialog, setShowLogicFieldDialog] = useState(false);
   const [selectedLogicField, setSelectedLogicField] = useState<LogicField | null>(null);
   const [showBooleanFieldDialog, setShowBooleanFieldDialog] = useState(false);
   const [selectedBooleanFieldKey, setSelectedBooleanFieldKey] = useState<string | null>(null);
+  const [showOptionsFieldDialog, setShowOptionsFieldDialog] = useState(false);
+  const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | undefined>();
+  const [showUnifiedFieldConfig, setShowUnifiedFieldConfig] = useState(false);
+  const [unifiedFieldForConfig, setUnifiedFieldForConfig] = useState<UnifiedField | null>(null);
 
   const handleFieldClick = (fieldKey: string) => {
     selectField(fieldKey);
@@ -61,6 +70,25 @@ export function FieldToolbox() {
     setSelectedBooleanFieldKey(booleanField.key);
     setShowBooleanFieldDialog(true);
   };
+  
+  const handleAddOptionsField = () => {
+    setEditingOptionsFieldId(undefined);
+    setShowOptionsFieldDialog(true);
+  };
+  
+  const handleUnifiedFieldClick = (fieldId: string) => {
+    const field = useFieldStore.getState().getUnifiedFieldById(fieldId);
+    if (field) {
+      if (field.variant === 'options') {
+        setEditingOptionsFieldId(fieldId);
+        setShowOptionsFieldDialog(true);
+      } else {
+        // Open field config dialog for regular fields
+        setUnifiedFieldForConfig(field);
+        setShowUnifiedFieldConfig(true);
+      }
+    }
+  };
 
   return (
     <>
@@ -76,25 +104,44 @@ export function FieldToolbox() {
             <div className="pb-8 pr-2">
               <DraggableFieldsList />
               
-              <SidebarSeparator />
+              {useUnifiedFields && (
+                <>
+                  <SidebarSeparator />
+                  <SidebarGroup>
+                    <SidebarGroupContent className="px-2">
+                      <AddOptionsFieldButton onClick={handleAddOptionsField} />
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                </>  
+              )}
               
-              <SidebarGroup>
-                <SidebarGroupContent className="px-2 space-y-2">
-                  <AddLogicFieldButton onClick={handleAddLogicField} />
-                  <AddBooleanFieldButton onClick={handleAddBooleanField} />
-                </SidebarGroupContent>
-              </SidebarGroup>
+              {!useUnifiedFields && (
+                <>
+                  <SidebarSeparator />
+                  
+                  <SidebarGroup>
+                    <SidebarGroupContent className="px-2 space-y-2">
+                      <AddLogicFieldButton onClick={handleAddLogicField} />
+                      <AddBooleanFieldButton onClick={handleAddBooleanField} />
+                    </SidebarGroupContent>
+                  </SidebarGroup>
 
-              <SidebarSeparator />
+                  <SidebarSeparator />
+                </>
+              )}
               
-              <PdfFieldsList 
-                fields={fields}
-                logicFields={logicFields}
-                booleanFields={booleanFields}
-                onFieldClick={handleFieldClick}
-                onLogicFieldClick={handleLogicFieldClick}
-                onBooleanFieldClick={handleBooleanFieldClick}
-              />
+              {useUnifiedFields ? (
+                <UnifiedFieldsList onFieldClick={handleUnifiedFieldClick} />
+              ) : (
+                <PdfFieldsList 
+                  fields={fields}
+                  logicFields={logicFields}
+                  booleanFields={booleanFields}
+                  onFieldClick={handleFieldClick}
+                  onLogicFieldClick={handleLogicFieldClick}
+                  onBooleanFieldClick={handleBooleanFieldClick}
+                />
+              )}
             </div>
           </ScrollArea>
         </SidebarContent>
@@ -135,6 +182,23 @@ export function FieldToolbox() {
         }}
         booleanField={selectedBooleanFieldKey ? booleanFields.find(f => f.key === selectedBooleanFieldKey) || null : null}
       />
+      
+      {useUnifiedFields && (
+        <>
+          <OptionsFieldDialog
+            open={showOptionsFieldDialog}
+            onOpenChange={setShowOptionsFieldDialog}
+            editingFieldId={editingOptionsFieldId}
+          />
+          
+          <FieldConfigDialog
+            field={unifiedFieldForConfig}
+            open={showUnifiedFieldConfig}
+            onOpenChange={setShowUnifiedFieldConfig}
+            isNew={false}
+          />
+        </>
+      )}
     </>
   );
 }

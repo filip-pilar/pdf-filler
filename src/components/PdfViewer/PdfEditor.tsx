@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useDrop } from 'react-dnd';
 import { pdfjs } from 'react-pdf';
 import { useFieldStore } from '@/store/fieldStore';
 import { usePositionPickerStore } from '@/store/positionPickerStore';
@@ -9,14 +8,15 @@ import { PdfCanvas } from './PdfCanvas';
 import { GridOverlay } from './GridOverlay';
 import { FieldOverlay } from './FieldOverlay';
 import { UnifiedFieldOverlay } from './UnifiedFieldOverlay';
-import { DragPreview } from './DragPreview';
 import { FieldPropertiesDialog } from '@/components/FieldPropertiesDialog/FieldPropertiesDialog';
 import { LogicFieldDialog } from '@/components/LogicFieldDialog/LogicFieldDialog';
+import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
+import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { PositionPickerOverlay } from '@/components/PositionPicker/PositionPickerOverlay';
 import { cn } from '@/lib/utils';
-import type { Field, FieldType } from '@/types/field.types';
+import type { Field } from '@/types/field.types';
 import type { LogicField } from '@/types/logicField.types';
-import type { DragItem } from '@/components/AppSidebar/DraggableFieldItem';
+import type { UnifiedField } from '@/types/unifiedField.types';
 
 // Set worker URL
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -24,18 +24,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// Helper function to get field size based on type
-const getFieldSize = (type: FieldType | 'logic') => {
-  switch(type) {
-    case 'checkbox': return { width: 25, height: 25 };
-    case 'signature': return { width: 150, height: 40 };
-    case 'image': return { width: 150, height: 100 };
-    case 'logic': return { width: 200, height: 30 };
-    default: return { width: 200, height: 30 };
-  }
-};
 
-export function PdfEditor() {
+interface PdfEditorProps {
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+export function PdfEditor({ }: PdfEditorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
   
@@ -54,18 +48,17 @@ export function PdfEditor() {
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const [showLogicFieldDialog, setShowLogicFieldDialog] = useState(false);
   const [editingLogicField, setEditingLogicField] = useState<LogicField | null>(null);
-  const [dragPreview, setDragPreview] = useState<{
-    type: FieldType | 'logic';
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  
+  // Unified field dialog state
+  const [unifiedFieldForConfig, setUnifiedFieldForConfig] = useState<UnifiedField | null>(null);
+  const [showUnifiedFieldConfig, setShowUnifiedFieldConfig] = useState(false);
+  const [isNewUnifiedField, setIsNewUnifiedField] = useState(false);
+  const [showOptionsFieldDialog, setShowOptionsFieldDialog] = useState(false);
+  const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | undefined>();
   
   const { 
     fields, 
-    selectedFieldKey, 
-    addField,
+    selectedFieldKey,
     getAllActionsForPage,
     getAllBooleanActionsForPage,
     pdfUrl, 
@@ -77,62 +70,20 @@ export function PdfEditor() {
     useUnifiedFields,
     unifiedFields
   } = useFieldStore();
-  const { snapPosition } = useGridSnap();
-  const { isPickingPosition, pickingActionType, pickingContent, confirmPosition } = usePositionPickerStore();
+  const { snapPosition } = useGridSnap(pageSize.height);
+  const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
+  
+  // Handle double-click on unified fields
+  const handleUnifiedFieldDoubleClick = (field: UnifiedField) => {
+    if (field.variant === 'options') {
+      setEditingOptionsFieldId(field.id);
+      setShowOptionsFieldDialog(true);
+    } else {
+      setUnifiedFieldForConfig(field);
+      setShowUnifiedFieldConfig(true);
+    }
+  };
 
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
-    accept: ['NEW_FIELD'],
-    hover: (item: DragItem, monitor) => {
-      const clientOffset = monitor.getClientOffset();
-      if (!clientOffset || !pdfRef.current) {
-        setDragPreview(null);
-        return;
-      }
-
-      const pdfRect = pdfRef.current.getBoundingClientRect();
-      const x = (clientOffset.x - pdfRect.left) / scale;
-      const y = (clientOffset.y - pdfRect.top) / scale;
-      
-      const size = getFieldSize(item.fieldType);
-      const snappedPos = gridEnabled ? snapPosition({ x, y }) : { x, y };
-      
-      setDragPreview({
-        type: item.fieldType,
-        x: snappedPos.x,
-        y: snappedPos.y,
-        width: size.width,
-        height: size.height
-      });
-    },
-    drop: (item: DragItem, monitor) => {
-      setDragPreview(null);
-      const clientOffset = monitor.getClientOffset();
-      if (!clientOffset || !pdfRef.current) return;
-
-      const pdfRect = pdfRef.current.getBoundingClientRect();
-      const x = (clientOffset.x - pdfRect.left) / scale;
-      const y = (clientOffset.y - pdfRect.top) / scale;
-      
-      // Apply grid snapping if enabled
-      const snappedPos = gridEnabled ? snapPosition({ x, y }) : { x, y };
-
-      const newField = addField({
-        type: item.fieldType,
-        label: '',
-        page: currentPage,
-        position: { x: Math.max(0, snappedPos.x), y: Math.max(0, snappedPos.y) },
-        size: getFieldSize(item.fieldType),
-        properties: {},
-      });
-
-      setNewFieldForConfig(newField);
-      setShowFieldConfig(true);
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
-  }), [fields, currentPage, scale, addField, gridEnabled, snapPosition]);
 
   const handleZoomIn = () => setScale(Math.min(scale + 0.25, 3));
   const handleZoomOut = () => setScale(Math.max(scale - 0.25, 0.5));
@@ -168,8 +119,6 @@ export function PdfEditor() {
   const currentPageActions = getAllActionsForPage(currentPage);
   const currentPageBooleanActions = getAllBooleanActionsForPage(currentPage);
 
-  // Attach drop ref to container
-  drop(containerRef);
 
   return (
     <>
@@ -188,8 +137,7 @@ export function PdfEditor() {
         <div 
           ref={containerRef} 
           className={cn(
-            "flex-1 overflow-auto bg-muted/30 transition-colors",
-            isOver && canDrop && "bg-primary/5"
+            "flex-1 overflow-auto bg-muted/30 transition-colors"
           )}
           style={{
             display: 'flex',
@@ -229,6 +177,7 @@ export function PdfEditor() {
                   scale={scale}
                   pageWidth={pageSize.width}
                   pageHeight={pageSize.height}
+                  onFieldDoubleClick={handleUnifiedFieldDoubleClick}
                 />
               ) : (
                 <FieldOverlay
@@ -243,16 +192,6 @@ export function PdfEditor() {
                 />
               )}
 
-              {dragPreview && isOver && (
-                <DragPreview
-                  type={dragPreview.type}
-                  x={dragPreview.x}
-                  y={dragPreview.y}
-                  width={dragPreview.width}
-                  height={dragPreview.height}
-                  scale={scale}
-                />
-              )}
               
               {isPickingPosition && (
                 <PositionPickerOverlay
@@ -273,17 +212,22 @@ export function PdfEditor() {
                     const fieldSize = getFieldSize();
                     
                     // Convert click position to PDF coordinates
-                    const pdfX = x / scale;
-                    const pdfY = y / scale;
+                    const screenX = x / scale;
+                    const screenY = y / scale;
                     
-                    // Center the field on the click position by subtracting half its size
-                    const centeredX = pdfX - (fieldSize.width / 2);
-                    const centeredY = pdfY - (fieldSize.height / 2);
+                    // Center the field on the click position
+                    const centeredScreenX = screenX - (fieldSize.width / 2);
+                    const centeredScreenY = screenY - (fieldSize.height / 2);
                     
-                    // Apply grid snapping if enabled
+                    // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
+                    // Now storing Y as distance from PDF bottom to field's TOP edge
+                    const pdfX = centeredScreenX;
+                    const pdfY = pageSize.height - centeredScreenY; // Top edge position
+                    
+                    // Apply grid snapping if enabled (pass field size for proper Y conversion)
                     const finalPosition = gridEnabled 
-                      ? snapPosition({ x: centeredX, y: centeredY })
-                      : { x: centeredX, y: centeredY };
+                      ? snapPosition({ x: pdfX, y: pdfY })
+                      : { x: pdfX, y: pdfY };
                     
                     // Place field centered on click position (matching the preview)
                     confirmPosition({ 
@@ -321,6 +265,28 @@ export function PdfEditor() {
           }
         }}
         logicField={editingLogicField}
+      />
+      
+      <FieldConfigDialog
+        field={unifiedFieldForConfig}
+        open={showUnifiedFieldConfig}
+        onOpenChange={(open) => {
+          setShowUnifiedFieldConfig(open);
+          if (!open) {
+            setUnifiedFieldForConfig(null);
+            setIsNewUnifiedField(false);
+          }
+        }}
+        isNew={isNewUnifiedField}
+        onSave={() => {
+          setIsNewUnifiedField(false);
+        }}
+      />
+      
+      <OptionsFieldDialog
+        open={showOptionsFieldDialog}
+        onOpenChange={setShowOptionsFieldDialog}
+        editingFieldId={editingOptionsFieldId}
       />
     </>
   );

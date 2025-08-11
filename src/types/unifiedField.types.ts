@@ -7,13 +7,11 @@
 import type { FieldType } from './field.types';
 
 /**
- * Field variant determines how array values are handled in the PDF
+ * Field variant determines how values are handled in the PDF
  */
 export type FieldVariant = 
-  | 'single'           // Single field placement (default for non-arrays)
-  | 'text-multi'       // Multiple text placements (each array item gets its own position)
-  | 'checkbox-multi'   // Multiple checkbox placements (checkmarks at each position)  
-  | 'text-list';       // Combined text list at single position (Value1, Value2, ...)
+  | 'single'           // Single field placement (default)
+  | 'options';         // Field with mapped option positions (radio/checkbox style)
 
 /**
  * Structure type indicates the data shape
@@ -22,6 +20,14 @@ export type FieldStructure =
   | 'simple'   // Single value field
   | 'array'    // Array of values
   | 'object';  // Object (auto-flattened into multiple fields)
+
+/**
+ * Render type for option fields
+ */
+export type OptionRenderType = 
+  | 'text'       // Render the actual value
+  | 'checkmark'  // Render a checkmark symbol
+  | 'custom';    // Render custom text
 
 /**
  * The unified field model that handles all field types
@@ -66,11 +72,30 @@ export interface UnifiedField {
   /** Sample value from imported data (helps with type detection) */
   sampleValue?: any;
   
-  /** For arrays - the individual items as simple strings */
-  options?: string[];
+  /** 
+   * For option fields - is this multi-select (checkboxes) or single-select (radio)?
+   */
+  multiSelect?: boolean;
   
-  /** For arrays with multiple placements - individual field names */
-  multiFieldNames?: string[];
+  /** 
+   * For option fields - how to render the selected value(s)
+   */
+  renderType?: OptionRenderType;
+  
+  /** 
+   * For option fields - mapping of possible values to their PDF positions
+   * At generation time, only positions for provided values are used
+   */
+  optionMappings?: Array<{
+    /** The option key (e.g., "male", "female", "other") */
+    key: string;
+    /** Position on the PDF where this option would appear if selected */
+    position: { x: number; y: number };
+    /** Size of the rendered element */
+    size?: { width: number; height: number };
+    /** Custom text to render (only used when renderType is 'custom') */
+    customText?: string;
+  }>;
   
   /** 
    * Source information for debugging and traceability
@@ -80,6 +105,12 @@ export interface UnifiedField {
     type: 'sql' | 'json' | 'typescript' | 'manual';
     originalName?: string;
   };
+  
+  /**
+   * Position version - 'top-edge' means position.y stores distance from PDF bottom to field's TOP edge
+   * If missing, assume legacy format (bottom edge)
+   */
+  positionVersion?: 'top-edge';
 }
 
 /**

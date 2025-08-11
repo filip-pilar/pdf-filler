@@ -75,7 +75,7 @@ export function Toolbar() {
 
   return (
     <>
-      <div className="flex flex-1 items-center justify-between">
+      <div className="toolbar flex flex-1 items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold">PDF Filler</h1>

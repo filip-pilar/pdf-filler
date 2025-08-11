@@ -16,7 +16,8 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    // willReadFrequently improves performance for getImageData operations
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     // Set canvas size
@@ -65,7 +66,7 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     const { x, y } = getCoordinates(e);
@@ -79,7 +80,7 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     if ('touches' in e) {
@@ -94,8 +95,7 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
   const stopDrawing = () => {
     if (isDrawing) {
       setIsDrawing(false);
-      // Auto-save with cropping when user stops drawing
-      saveSignature();
+      // Don't auto-save - let user click Apply when ready
     }
   };
 
@@ -103,7 +103,7 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -112,18 +112,16 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
   };
 
   const getSignatureBounds = (canvas: HTMLCanvasElement) => {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     
-    let minX = canvas.width;
     let minY = canvas.height;
-    let maxX = 0;
     let maxY = 0;
     
-    // Scan all pixels to find bounds of non-transparent content
+    // Only scan for vertical bounds - preserve horizontal positioning
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
         const idx = (y * canvas.width + x) * 4;
@@ -131,25 +129,23 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
         
         // If pixel is not fully transparent
         if (alpha > 0) {
-          minX = Math.min(minX, x);
           minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x);
           maxY = Math.max(maxY, y);
         }
       }
     }
     
     // If no content found, return null
-    if (minX > maxX || minY > maxY) {
+    if (minY > maxY) {
       return null;
     }
     
-    // Add small padding (5px) to avoid cutting too close
+    // Add small padding (5px) to avoid cutting too close vertically
     const padding = 5;
     return {
-      x: Math.max(0, minX - padding),
+      x: 0, // Always start from left edge
       y: Math.max(0, minY - padding),
-      width: Math.min(canvas.width, maxX - minX + padding * 2),
+      width: canvas.width, // Always use full width
       height: Math.min(canvas.height, maxY - minY + padding * 2)
     };
   };
@@ -166,22 +162,24 @@ export function SignaturePad({ onSignatureSave, initialValue }: SignaturePadProp
       return;
     }
 
-    // Create a new canvas with cropped dimensions
+    // Create a new canvas with the SAME WIDTH as the original
+    // but with cropped height to remove vertical whitespace
     const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = bounds.width;
+    croppedCanvas.width = canvas.width; // Keep original width
     croppedCanvas.height = bounds.height;
     
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return;
     
-    // Copy the signature content to the cropped canvas
+    // Copy the signature content, preserving horizontal position
+    // Only crop vertical whitespace
     croppedCtx.drawImage(
       canvas,
-      bounds.x, bounds.y, bounds.width, bounds.height,
-      0, 0, bounds.width, bounds.height
+      0, bounds.y, canvas.width, bounds.height, // Source: full width, cropped height
+      0, 0, canvas.width, bounds.height // Dest: full width, cropped height
     );
     
-    // Convert cropped canvas to data URL
+    // Convert to data URL as PNG
     const dataURL = croppedCanvas.toDataURL('image/png');
     onSignatureSave(dataURL);
   };

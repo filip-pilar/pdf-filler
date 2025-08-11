@@ -11,7 +11,14 @@ import { useFieldStore, type GridSize } from '@/store/fieldStore';
 import { cn } from '@/lib/utils';
 
 export function GridControls() {
-  const { gridEnabled: enabled, gridSize: size, showGrid, setGridSize: setSize, setShowGrid, setGridEnabled } = useFieldStore();
+  const { 
+    gridEnabled: enabled, 
+    gridSize: size, 
+    showGrid, 
+    setGridSize: setSize, 
+    setShowGrid, 
+    setGridEnabled
+  } = useFieldStore();
 
   const handleGridOptionClick = (value: GridSize | 'off') => {
     if (value === 'off') {
@@ -19,6 +26,7 @@ export function GridControls() {
     } else {
       setGridEnabled(true);
       setSize(value);
+      // Note: Fields will snap to grid when user drags them, not automatically
     }
   };
 

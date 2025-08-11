@@ -14,7 +14,7 @@ export function StatusBar() {
   ).length;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-8 bg-background border-t flex items-center px-4 gap-4 text-xs text-muted-foreground z-50">
+    <div className="status-bar fixed bottom-0 left-0 right-0 h-8 bg-background border-t flex items-center px-4 gap-4 text-xs text-muted-foreground z-50">
       {pdfFile && (
         <div className="flex items-center gap-1">
           <FileText className="h-3 w-3" />
