@@ -92,8 +92,8 @@ export function OptionsFieldDialog({
   // Track if we should auto-reopen after placement
   const shouldReopenRef = useRef(false);
   
-  // Ref for options list scroll container
-  const optionsListRef = useRef<HTMLDivElement>(null);
+  // Ref for dialog scroll container
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   // Validation errors
   const [fieldKeyError, setFieldKeyError] = useState('');
@@ -255,9 +255,9 @@ export function OptionsFieldDialog({
     setNewOptionKey('');
     setOptionKeyError('');
     
-    // Auto-scroll to show the new option
+    // Auto-scroll dialog to bottom to show the new option
     requestAnimationFrame(() => {
-      const scrollViewport = optionsListRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollViewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollViewport) {
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
@@ -676,7 +676,7 @@ export function OptionsFieldDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
           <div className="px-6 py-4 space-y-4">
             {/* Step 1: Field Key */}
             <div className="space-y-2">
@@ -814,10 +814,7 @@ export function OptionsFieldDialog({
               </div>
               
               {optionMappings.length > 0 && (
-                <ScrollArea 
-                  className="h-[200px] rounded-md border bg-background/50"
-                  ref={optionsListRef}
-                >
+                <div className="rounded-md border bg-background/50">
                   <div className="p-3 space-y-2">
                     {optionMappings.map((mapping) => (
                       <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
@@ -863,7 +860,7 @@ export function OptionsFieldDialog({
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </div>
 
