@@ -196,18 +196,31 @@ export function OptionsFieldDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, newOptionKey, optionMappings, fieldKey]);
 
+  // Track last processed position to detect changes
+  const lastProcessedPositionRef = useRef<{ x: number; y: number; page: number } | null>(null);
+  
   // Position picker callback
   useEffect(() => {
     const unsubscribe = usePositionPickerStore.subscribe((state) => {
-      if (!state.isPickingPosition && isPlacingOptions) {
+      if (!state.isPickingPosition && isPlacingOptions && state.lastConfirmedPosition) {
+        // Check if this is a new position (not the one we already processed)
         const position = state.lastConfirmedPosition;
-        if (position) {
+        const isNewPosition = !lastProcessedPositionRef.current || 
+          lastProcessedPositionRef.current.x !== position.x ||
+          lastProcessedPositionRef.current.y !== position.y ||
+          lastProcessedPositionRef.current.page !== position.page;
+        
+        if (isNewPosition) {
+          lastProcessedPositionRef.current = { ...position };
           handlePositionPicked(position);
         }
       }
     });
     
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      lastProcessedPositionRef.current = null;
+    };
   }, [isPlacingOptions, currentPlacingIndex, optionMappings, placementMode]);
 
   const handleAddOption = () => {
@@ -245,7 +258,42 @@ export function OptionsFieldDialog({
   };
 
   const handleStartPlacement = () => {
-    // Save current state
+    // Create or update field immediately with initial data
+    const initialFieldData = {
+      key: fieldKey.trim(),
+      type: 'text' as const,
+      variant: 'options' as const,
+      optionMappings: optionMappings.map(m => ({
+        key: m.key,
+        position: m.position || { x: 100, y: 100 }, // Default position if not placed
+        renderType: renderType,
+        customText: renderType === 'custom' ? m.customText : undefined,
+        size: renderType === 'checkmark' 
+          ? { width: 25, height: 25 }
+          : { width: 100, height: 30 }
+      })),
+      page: currentPage,
+      position: { x: 100, y: 100 }, // Will be updated during placement
+      size: renderType === 'checkmark' 
+        ? { width: 25, height: 25 }
+        : { width: 100, height: 30 },
+      structure: placementMode === 'combined' ? 'merged' : 'simple',
+      enabled: true,
+      placementCount: optionMappings.length
+    };
+    
+    let fieldId = editingFieldId;
+    if (!fieldId) {
+      // Create new field immediately
+      const newField = addUnifiedField(initialFieldData);
+      fieldId = newField.id;
+      toast.success('Options field created - now place the options');
+    } else {
+      // Update existing field
+      updateUnifiedField(fieldId, initialFieldData);
+    }
+    
+    // Save current state with field ID
     placementStateRef = {
       fieldKey,
       placementMode,
@@ -253,7 +301,7 @@ export function OptionsFieldDialog({
       optionMappings,
       currentPlacingIndex: 0,
       combinedPosition,
-      editingFieldId
+      editingFieldId: fieldId // Save the field ID for updates
     };
     
     // Close dialog to allow PDF interaction
@@ -265,11 +313,34 @@ export function OptionsFieldDialog({
     
     if (placementMode === 'combined') {
       toast.info('Click on the PDF to place all options at one position');
-      startPicking('text');
+      startPicking({
+        actionId: 'options-field-combined',
+        content: `All ${optionMappings.length} options`,
+        optionLabel: fieldKey,
+        actionType: renderType === 'checkmark' ? 'checkmark' : 'text',
+        onComplete: () => {},
+        onCancel: () => {
+          setIsPlacingOptions(false);
+          toast.error('Placement cancelled');
+          onOpenChange(true);
+        }
+      });
     } else {
       setCurrentPlacingIndex(0);
-      toast.info(`Click to place option: ${optionMappings[0].key}`);
-      startPicking(renderType === 'checkmark' ? 'checkmark' : 'text');
+      const firstOption = optionMappings[0];
+      toast.info(`Click to place option 1 of ${optionMappings.length}: ${firstOption.key}`);
+      startPicking({
+        actionId: `options-field-${firstOption.key}`,
+        content: renderType === 'checkmark' ? '✓' : firstOption.key,
+        optionLabel: `${fieldKey} (1/${optionMappings.length})`,
+        actionType: renderType === 'checkmark' ? 'checkmark' : 'text',
+        onComplete: () => {},
+        onCancel: () => {
+          setIsPlacingOptions(false);
+          toast.error('Placement cancelled');
+          onOpenChange(true);
+        }
+      });
     }
   };
 
@@ -285,10 +356,27 @@ export function OptionsFieldDialog({
         placed: true
       }));
       
-      setIsPlacingOptions(false);
-      toast.success('All options placed! Opening dialog to save...');
+      // Update field in store immediately
+      if (placementStateRef.editingFieldId) {
+        const updatedFieldData = {
+          position: position,
+          optionMappings: placementStateRef.optionMappings.map(m => ({
+            key: m.key,
+            position: m.position!,
+            renderType: placementStateRef.renderType,
+            customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
+            size: placementStateRef.renderType === 'checkmark' 
+              ? { width: 25, height: 25 }
+              : { width: 100, height: 30 }
+          }))
+        };
+        updateUnifiedField(placementStateRef.editingFieldId, updatedFieldData);
+      }
       
-      // Reopen dialog to save
+      setIsPlacingOptions(false);
+      toast.success('All options placed!');
+      
+      // Reopen dialog
       setTimeout(() => {
         onOpenChange(true);
       }, 500);
@@ -301,18 +389,54 @@ export function OptionsFieldDialog({
         placed: true
       };
       
+      // Update field in store immediately with the new option position
+      if (placementStateRef.editingFieldId) {
+        const updatedFieldData = {
+          position: placementStateRef.optionMappings[0].position || position, // Use first option position as field position
+          optionMappings: placementStateRef.optionMappings.map(m => ({
+            key: m.key,
+            position: m.position || { x: 100, y: 100 },
+            renderType: placementStateRef.renderType,
+            customText: placementStateRef.renderType === 'custom' ? m.customText : undefined,
+            size: placementStateRef.renderType === 'checkmark' 
+              ? { width: 25, height: 25 }
+              : { width: 100, height: 30 }
+          }))
+        };
+        updateUnifiedField(placementStateRef.editingFieldId, updatedFieldData);
+        toast.success(`Option "${placementStateRef.optionMappings[currentIndex].key}" placed`);
+      }
+      
       // Move to next option or finish
       const nextIndex = currentIndex + 1;
       if (nextIndex < placementStateRef.optionMappings.length) {
         placementStateRef.currentPlacingIndex = nextIndex;
-        toast.info(`Click to place option: ${placementStateRef.optionMappings[nextIndex].key}`);
-        startPicking(placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text');
+        setCurrentPlacingIndex(nextIndex); // Update React state too
+        const nextOption = placementStateRef.optionMappings[nextIndex];
+        const totalOptions = placementStateRef.optionMappings.length;
+        toast.info(`Click to place option ${nextIndex + 1} of ${totalOptions}: ${nextOption.key}`);
+        
+        // Need to restart picking for the next option
+        setTimeout(() => {
+          startPicking({
+            actionId: `options-field-${nextOption.key}`,
+            content: placementStateRef.renderType === 'checkmark' ? '✓' : nextOption.key,
+            optionLabel: `${placementStateRef.fieldKey} (${nextIndex + 1}/${totalOptions})`,
+            actionType: placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text',
+            onComplete: () => {},
+            onCancel: () => {
+              setIsPlacingOptions(false);
+              toast.error('Placement cancelled');
+              onOpenChange(true);
+            }
+          });
+        }, 100); // Small delay to ensure state updates
       } else {
         setIsPlacingOptions(false);
         setCurrentPlacingIndex(-1);
-        toast.success('All options placed! Opening dialog to save...');
+        toast.success('All options placed successfully!');
         
-        // Reopen dialog to save
+        // Reopen dialog
         setTimeout(() => {
           onOpenChange(true);
         }, 500);
@@ -338,36 +462,87 @@ export function OptionsFieldDialog({
       return;
     }
     
-    // Prepare field data
-    const fieldData = {
-      key: fieldKey.trim(),
-      type: 'text' as const,
-      variant: 'options' as const,
-      optionMappings: optionMappings.map(m => ({
-        key: m.key,
-        position: m.position!,
-        renderType: renderType,
-        customText: renderType === 'custom' ? m.customText : undefined,
+    // If field was created during placement, just close the dialog
+    // The field is already in the store with all the correct data
+    if (placementStateRef && placementStateRef.editingFieldId) {
+      // Final update to ensure everything is saved
+      const fieldData = {
+        key: fieldKey.trim(),
+        type: 'text' as const,
+        variant: 'options' as const,
+        optionMappings: optionMappings.map(m => ({
+          key: m.key,
+          position: m.position!,
+          renderType: renderType,
+          customText: renderType === 'custom' ? m.customText : undefined,
+          size: renderType === 'checkmark' 
+            ? { width: 25, height: 25 }
+            : { width: 100, height: 30 }
+        })),
+        page: currentPage,
+        position: combinedPosition || optionMappings[0].position!,
         size: renderType === 'checkmark' 
           ? { width: 25, height: 25 }
-          : { width: 100, height: 30 }
-      })),
-      page: currentPage,
-      position: combinedPosition || optionMappings[0].position!,
-      size: renderType === 'checkmark' 
-        ? { width: 25, height: 25 }
-        : { width: 100, height: 30 },
-      structure: placementMode === 'combined' ? 'merged' : 'simple',
-      enabled: true,
-      placementCount: optionMappings.length
-    };
-    
-    if (editingFieldId) {
-      // Update existing field
+          : { width: 100, height: 30 },
+        structure: placementMode === 'combined' ? 'merged' : 'simple',
+        enabled: true,
+        placementCount: optionMappings.length
+      };
+      
+      updateUnifiedField(placementStateRef.editingFieldId, fieldData);
+      toast.success('Options field saved successfully');
+    } else if (editingFieldId) {
+      // Update existing field (editing mode)
+      const fieldData = {
+        key: fieldKey.trim(),
+        type: 'text' as const,
+        variant: 'options' as const,
+        optionMappings: optionMappings.map(m => ({
+          key: m.key,
+          position: m.position!,
+          renderType: renderType,
+          customText: renderType === 'custom' ? m.customText : undefined,
+          size: renderType === 'checkmark' 
+            ? { width: 25, height: 25 }
+            : { width: 100, height: 30 }
+        })),
+        page: currentPage,
+        position: combinedPosition || optionMappings[0].position!,
+        size: renderType === 'checkmark' 
+          ? { width: 25, height: 25 }
+          : { width: 100, height: 30 },
+        structure: placementMode === 'combined' ? 'merged' : 'simple',
+        enabled: true,
+        placementCount: optionMappings.length
+      };
+      
       updateUnifiedField(editingFieldId, fieldData);
       toast.success('Options field updated');
     } else {
-      // Create new field
+      // Create new field (shouldn't normally reach here if placement worked)
+      const fieldData = {
+        key: fieldKey.trim(),
+        type: 'text' as const,
+        variant: 'options' as const,
+        optionMappings: optionMappings.map(m => ({
+          key: m.key,
+          position: m.position!,
+          renderType: renderType,
+          customText: renderType === 'custom' ? m.customText : undefined,
+          size: renderType === 'checkmark' 
+            ? { width: 25, height: 25 }
+            : { width: 100, height: 30 }
+        })),
+        page: currentPage,
+        position: combinedPosition || optionMappings[0].position!,
+        size: renderType === 'checkmark' 
+          ? { width: 25, height: 25 }
+          : { width: 100, height: 30 },
+        structure: placementMode === 'combined' ? 'merged' : 'simple',
+        enabled: true,
+        placementCount: optionMappings.length
+      };
+      
       addUnifiedField(fieldData);
       toast.success('Options field created');
     }
