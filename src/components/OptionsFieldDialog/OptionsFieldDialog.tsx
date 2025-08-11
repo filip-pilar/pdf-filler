@@ -558,10 +558,11 @@ export function OptionsFieldDialog({
       return;
     }
     
-    // If field was created during placement, don't create another one
-    // The field is already in the store with all the correct data
-    if (placementStateRef && placementStateRef.editingFieldId && !editingFieldId) {
-      // Final update to ensure everything is saved
+    // Determine which field ID we're working with
+    const fieldId = editingFieldId || placementStateRef?.editingFieldId;
+    
+    if (fieldId) {
+      // Update existing field (either passed as prop or created during placement)
       const fieldData = {
         key: fieldKey.trim(),
         type: 'text' as const,
@@ -586,34 +587,12 @@ export function OptionsFieldDialog({
         placementCount: optionMappings.length
       };
       
-      updateUnifiedField(placementStateRef.editingFieldId, fieldData);
-    } else if (editingFieldId) {
-      // Update existing field (editing mode)
-      const fieldData = {
-        key: fieldKey.trim(),
-        type: 'text' as const,
-        variant: 'options' as const,
-        optionMappings: optionMappings.map(m => ({
-          key: m.key,
-          position: m.position!,
-          renderType: renderType,
-          customText: renderType === 'custom' ? m.customText : undefined,
-          sampleValue: renderType === 'text' ? (m.sampleValue || m.key) : undefined,
-          size: renderType === 'checkmark' 
-            ? { width: 25, height: 25 }
-            : { width: 100, height: 30 }
-        })),
-        page: currentPage,
-        position: combinedPosition || optionMappings[0].position!,
-        size: renderType === 'checkmark' 
-          ? { width: 25, height: 25 }
-          : { width: 100, height: 30 },
-        structure: placementMode === 'combined' ? 'merged' : 'simple',
-        enabled: true,
-        placementCount: optionMappings.length
-      };
+      updateUnifiedField(fieldId, fieldData);
       
-      updateUnifiedField(editingFieldId, fieldData);
+      // Clear placement state after successful save since we're now officially editing
+      if (placementStateRef && !editingFieldId) {
+        placementStateRef = null;
+      }
     } else {
       // Create new field (shouldn't normally reach here if placement worked)
       const fieldData = {
@@ -683,7 +662,7 @@ export function OptionsFieldDialog({
       <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>
-            {editingFieldId ? 'Edit Options Field' : 'Create Options Field'}
+            {(editingFieldId || placementStateRef?.editingFieldId) ? 'Edit Options Field' : 'Create Options Field'}
           </DialogTitle>
           <DialogDescription>
             Define how option values map to positions on your PDF
@@ -893,12 +872,14 @@ export function OptionsFieldDialog({
         <DialogFooter className="px-6 py-4 border-t">
           <div className="flex justify-between w-full">
             <div>
-              {editingFieldId && (
+              {(editingFieldId || placementStateRef?.editingFieldId) && (
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    if (confirm('Are you sure you want to delete this options field?')) {
-                      deleteUnifiedField(editingFieldId);
+                    const fieldIdToDelete = editingFieldId || placementStateRef?.editingFieldId;
+                    if (fieldIdToDelete && confirm('Are you sure you want to delete this options field?')) {
+                      deleteUnifiedField(fieldIdToDelete);
+                      placementStateRef = null;  // Clear placement state after deletion
                       onOpenChange(false);
                       resetDialog();
                     }
