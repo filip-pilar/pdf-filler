@@ -1,47 +1,41 @@
-import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { useDrag } from 'react-dnd';
+import { useFieldStore } from '@/store/fieldStore';
 import { cn } from '@/lib/utils';
-import { Workflow } from 'lucide-react';
-
-interface LogicDragItem {
-  type: 'NEW_LOGIC_FIELD';
-}
+import { GitBranch } from 'lucide-react';
 
 export function DraggableLogicFieldItem() {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: 'new-logic-field',
-    data: {
+  const { pdfUrl } = useFieldStore();
+  const isDisabled = !pdfUrl;
+
+  const [{ isDragging }, drag] = useDrag({
+    type: 'NEW_LOGIC_FIELD',
+    item: {
       type: 'NEW_LOGIC_FIELD',
     },
+    canDrag: !isDisabled,
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
   });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    opacity: isDragging ? 0 : 1,
-  };
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
+      ref={drag}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-md cursor-move transition-all",
-        "hover:bg-accent hover:text-accent-foreground",
-        "border border-transparent hover:border-border",
-        "bg-primary/5",
+        "flex items-center gap-2 px-3 py-2 rounded-md transition-all",
+        isDisabled ? (
+          "opacity-50 cursor-not-allowed"
+        ) : (
+          "cursor-move hover:bg-accent hover:text-accent-foreground"
+        ),
+        "border border-transparent",
+        !isDisabled && "hover:border-border",
+        isDragging && "opacity-50",
       )}
-      title="Drag to create Logic field"
+      title={isDisabled ? "Load a PDF first to add fields" : "Drag to add logic field"}
     >
-      <Workflow className="h-4 w-4 flex-shrink-0 text-primary" />
-      <span className="text-sm font-medium">Logic Field</span>
+      <GitBranch className="h-4 w-4 flex-shrink-0" />
+      <span className="text-sm">Logic Field</span>
     </div>
   );
 }

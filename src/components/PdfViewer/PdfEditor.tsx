@@ -13,8 +13,10 @@ import { LogicFieldDialog } from '@/components/LogicFieldDialog/LogicFieldDialog
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { PositionPickerOverlay } from '@/components/PositionPicker/PositionPickerOverlay';
+import { PdfDropTarget } from './PdfDropTarget';
 import { cn } from '@/lib/utils';
 import type { Field } from '@/types/field.types';
+import type { FieldType } from '@/types/field.types';
 import type { LogicField } from '@/types/logicField.types';
 import type { UnifiedField } from '@/types/unifiedField.types';
 
@@ -68,7 +70,8 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
     setCurrentPage: setStoreCurrentPage,
     setTotalPages,
     useUnifiedFields,
-    unifiedFields
+    unifiedFields,
+    addUnifiedField
   } = useFieldStore();
   const { snapPosition } = useGridSnap(pageSize.height);
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
@@ -82,6 +85,29 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
       setUnifiedFieldForConfig(field);
       setShowUnifiedFieldConfig(true);
     }
+  };
+
+  // Handle field drops from sidebar
+  const handleFieldDrop = (fieldType: FieldType, position: { x: number; y: number }, page: number) => {
+    if (!useUnifiedFields) return;
+
+    // Create a new unified field with the dropped type and position
+    const newField = addUnifiedField({
+      key: `${fieldType}_${Date.now()}`, // Generate a unique key
+      type: fieldType,
+      variant: 'single',
+      page,
+      position,
+      enabled: true,
+      structure: 'simple',
+      placementCount: 1,
+      positionVersion: 'top-edge'
+    });
+
+    // Open the field config dialog for immediate editing
+    setUnifiedFieldForConfig(newField);
+    setIsNewUnifiedField(true);
+    setShowUnifiedFieldConfig(true);
   };
 
 
@@ -160,84 +186,93 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
                 onPageLoadSuccess={onPageLoadSuccess}
               />
               
-              <GridOverlay
-                show={showGrid}
-                enabled={gridEnabled}
+              <PdfDropTarget
+                currentPage={currentPage}
+                scale={scale}
                 pageWidth={pageSize.width}
                 pageHeight={pageSize.height}
-                scale={scale}
-                gridSize={gridSize}
-              />
-              
-              {useUnifiedFields ? (
-                <UnifiedFieldOverlay
-                  fields={unifiedFields}
-                  selectedFieldId={selectedFieldKey}
-                  currentPage={currentPage}
-                  scale={scale}
+                onFieldDrop={handleFieldDrop}
+                className="absolute inset-0"
+              >
+                <GridOverlay
+                  show={showGrid}
+                  enabled={gridEnabled}
                   pageWidth={pageSize.width}
                   pageHeight={pageSize.height}
-                  onFieldDoubleClick={handleUnifiedFieldDoubleClick}
-                />
-              ) : (
-                <FieldOverlay
-                  fields={fields}
-                  actions={currentPageActions}
-                  booleanActions={currentPageBooleanActions}
-                  selectedFieldKey={selectedFieldKey}
-                  currentPage={currentPage}
                   scale={scale}
-                  pageWidth={pageSize.width}
-                  pageHeight={pageSize.height}
+                  gridSize={gridSize}
                 />
-              )}
+                
+                {useUnifiedFields ? (
+                  <UnifiedFieldOverlay
+                    fields={unifiedFields}
+                    selectedFieldId={selectedFieldKey}
+                    currentPage={currentPage}
+                    scale={scale}
+                    pageWidth={pageSize.width}
+                    pageHeight={pageSize.height}
+                    onFieldDoubleClick={handleUnifiedFieldDoubleClick}
+                  />
+                ) : (
+                  <FieldOverlay
+                    fields={fields}
+                    actions={currentPageActions}
+                    booleanActions={currentPageBooleanActions}
+                    selectedFieldKey={selectedFieldKey}
+                    currentPage={currentPage}
+                    scale={scale}
+                    pageWidth={pageSize.width}
+                    pageHeight={pageSize.height}
+                  />
+                )}
 
-              
-              {isPickingPosition && (
-                <PositionPickerOverlay
-                  pageWidth={pageSize.width}
-                  pageHeight={pageSize.height}
-                  scale={scale}
-                  onPositionClick={(x, y) => {
-                    // Get the actual field size that will be rendered
-                    const getFieldSize = () => {
-                      if (pickingActionType === 'checkmark') {
-                        return { width: 25, height: 25 };
-                      }
-                      // For text fields, always use 100px width for centering
-                      // This matches the minWidth in the preview and the defaultSize
-                      return { width: 100, height: 30 };
-                    };
-                    
-                    const fieldSize = getFieldSize();
-                    
-                    // Convert click position to PDF coordinates
-                    const screenX = x / scale;
-                    const screenY = y / scale;
-                    
-                    // Center the field on the click position
-                    const centeredScreenX = screenX - (fieldSize.width / 2);
-                    const centeredScreenY = screenY - (fieldSize.height / 2);
-                    
-                    // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
-                    // Now storing Y as distance from PDF bottom to field's TOP edge
-                    const pdfX = centeredScreenX;
-                    const pdfY = pageSize.height - centeredScreenY; // Top edge position
-                    
-                    // Apply grid snapping if enabled (pass field size for proper Y conversion)
-                    const finalPosition = gridEnabled 
-                      ? snapPosition({ x: pdfX, y: pdfY })
-                      : { x: pdfX, y: pdfY };
-                    
-                    // Place field centered on click position (matching the preview)
-                    confirmPosition({ 
-                      x: Math.max(0, finalPosition.x), 
-                      y: Math.max(0, finalPosition.y), 
-                      page: currentPage 
-                    });
-                  }}
-                />
-              )}
+                
+                {isPickingPosition && (
+                  <PositionPickerOverlay
+                    pageWidth={pageSize.width}
+                    pageHeight={pageSize.height}
+                    scale={scale}
+                    onPositionClick={(x, y) => {
+                      // Get the actual field size that will be rendered
+                      const getFieldSize = () => {
+                        if (pickingActionType === 'checkmark') {
+                          return { width: 25, height: 25 };
+                        }
+                        // For text fields, always use 100px width for centering
+                        // This matches the minWidth in the preview and the defaultSize
+                        return { width: 100, height: 30 };
+                      };
+                      
+                      const fieldSize = getFieldSize();
+                      
+                      // Convert click position to PDF coordinates
+                      const screenX = x / scale;
+                      const screenY = y / scale;
+                      
+                      // Center the field on the click position
+                      const centeredScreenX = screenX - (fieldSize.width / 2);
+                      const centeredScreenY = screenY - (fieldSize.height / 2);
+                      
+                      // Convert screen coordinates to PDF coordinates (Y-axis is inverted)
+                      // Now storing Y as distance from PDF bottom to field's TOP edge
+                      const pdfX = centeredScreenX;
+                      const pdfY = pageSize.height - centeredScreenY; // Top edge position
+                      
+                      // Apply grid snapping if enabled (pass field size for proper Y conversion)
+                      const finalPosition = gridEnabled 
+                        ? snapPosition({ x: pdfX, y: pdfY })
+                        : { x: pdfX, y: pdfY };
+                      
+                      // Place field centered on click position (matching the preview)
+                      confirmPosition({ 
+                        x: Math.max(0, finalPosition.x), 
+                        y: Math.max(0, finalPosition.y), 
+                        page: currentPage 
+                      });
+                    }}
+                  />
+                )}
+              </PdfDropTarget>
             </div>
           )}
         </div>

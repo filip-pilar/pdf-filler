@@ -1,9 +1,12 @@
-import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { useRef, useState } from 'react';
+import Draggable from 'react-draggable';
+import { ResizableBox } from 'react-resizable';
 import { useFieldStore } from '@/store/fieldStore';
+import { useGridSnap } from '@/hooks/useGridSnap';
 import type { UnifiedField, OptionRenderType } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
-import { Type, Image, PenTool, RadioIcon } from 'lucide-react';
+import { Type, Image, PenTool, RadioIcon, CheckSquare } from 'lucide-react';
+import 'react-resizable/css/styles.css';
 
 interface DraggableUnifiedFieldProps {
   field: UnifiedField;
@@ -27,27 +30,12 @@ export function DraggableUnifiedField({
   renderType,
   onDoubleClick
 }: DraggableUnifiedFieldProps) {
-  const { deleteUnifiedField } = useFieldStore();
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: field.id,
-    data: {
-      field,
-      type: 'unified-field',
-      scale,
-      pageHeight,
-      optionKey,
-    }
-  });
-
-  // Note: We'll handle repositioning through a drop zone on the PDF overlay
-  // This is just for initiating the drag
+  const { updateUnifiedField, deleteUnifiedField } = useFieldStore();
+  const { snapPosition, snapSize, gridSize, isEnabled } = useGridSnap(pageHeight);
+  const nodeRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [resizingSize, setResizingSize] = useState<{ width: number; height: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -62,9 +50,8 @@ export function DraggableUnifiedField({
 
   // Get appropriate icon for field type/variant
   const getFieldIcon = () => {
-    // For checkboxes, show checkmark symbol instead of checkbox icon
     if (renderType === 'checkmark' || field.type === 'checkbox') {
-      return <span className="text-base">✓</span>;
+      return <CheckSquare className="h-3 w-3" />;
     }
     if (field.type === 'image') return <Image className="h-3 w-3" />;
     if (field.type === 'signature') return <PenTool className="h-3 w-3" />;
@@ -77,16 +64,15 @@ export function DraggableUnifiedField({
     // For option fields in preview mode
     if (optionKey && isPreview) {
       if (renderType === 'checkmark') {
-        return '✓'; // Just checkmark, no box
+        return '✓';
       }
       if (renderType === 'custom' && field.sampleValue) {
-        return field.sampleValue; // Custom text
+        return field.sampleValue;
       }
-      return optionKey; // Show the option key
+      return optionKey;
     }
     
     if (field.type === 'checkbox') {
-      // Only show checkmark when checked, nothing when unchecked
       return field.sampleValue ? '✓' : '';
     }
     
@@ -113,41 +99,93 @@ export function DraggableUnifiedField({
   const isSignature = field.type === 'signature';
   const hasImageData = (isImage || isSignature) && field.sampleValue && typeof field.sampleValue === 'string' && field.sampleValue.startsWith('data:');
   
-  // CRITICAL: Transform handles movement, opacity hides original
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    opacity: isDragging ? 0 : 1, // Hide original when dragging
-    transition: 'opacity 0.15s', // Smooth fade
-    left: field.position.x * scale,
-    top: screenY * scale,
-    width: (field.size?.width || 200) * scale,
-    height: (field.size?.height || 30) * scale,
-    fontSize: 12 * scale,
+  // Handle drag stop - update position in store
+  const handleDragStop = (_e: any, data: any) => {
+    setIsDragging(false);
+    
+    // Convert screen coordinates back to PDF coordinates
+    const newX = data.x / scale;
+    const newScreenY = data.y / scale;
+    const newPdfY = pageHeight - newScreenY;
+    
+    // Apply grid snapping
+    const snapped = isEnabled 
+      ? snapPosition({ x: newX, y: newPdfY })
+      : { x: newX, y: newPdfY };
+    
+    // Update field position
+    if (optionKey && field.optionMappings) {
+      // Update specific option mapping position
+      const updatedMappings = field.optionMappings.map(m => 
+        m.key === optionKey 
+          ? { ...m, position: snapped }
+          : m
+      );
+      updateUnifiedField(field.id, {
+        optionMappings: updatedMappings
+      });
+    } else {
+      // Update main field position
+      updateUnifiedField(field.id, {
+        position: snapped
+      });
+    }
   };
 
-  return (
+  // Handle resize stop - update size in store
+  const handleResizeStop = (_e: any, _direction: any, ref: any) => {
+    const newWidth = ref.offsetWidth / scale;
+    const newHeight = ref.offsetHeight / scale;
+    
+    // Apply grid snapping to size
+    const snappedSize = isEnabled 
+      ? snapSize({ width: newWidth, height: newHeight })
+      : { width: newWidth, height: newHeight };
+    
+    updateUnifiedField(field.id, {
+      size: snappedSize
+    });
+    
+    setResizingSize(null);
+  };
+
+  // Calculate position and size with scale
+  const scaledX = field.position.x * scale;
+  const scaledY = screenY * scale;
+  const scaledWidth = (field.size?.width || 200) * scale;
+  const scaledHeight = (field.size?.height || 30) * scale;
+
+  // Determine if field should be resizable
+  const isResizable = !isCheckbox && !isPreview && !optionKey;
+
+  const fieldContent = (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
+      ref={nodeRef}
       className={cn(
-        "absolute border rounded cursor-move overflow-hidden",
+        "border rounded cursor-move overflow-hidden transition-shadow",
         "hover:shadow-md hover:z-10",
         isSelected 
-          ? "border-primary bg-primary/5 shadow-lg z-20" // Much more transparent
+          ? "border-primary bg-primary/5 shadow-lg z-20"
           : isEmptyCheckbox 
-            ? "border-border/30 bg-transparent" // Very subtle for empty checkboxes
-            : "border-border/50 bg-background/20", // Very transparent background
+            ? "border-border/30 bg-transparent"
+            : "border-border/50 bg-background/20",
         isPreview && "border-dashed opacity-60",
         field.variant === 'options' && !isPreview && "border-dotted",
-        // Remove ALL isDragging-based opacity/pointer-events changes
+        isDragging && "opacity-50 cursor-grabbing",
+        isHovered && !isDragging && "shadow-lg"
       )}
       onContextMenu={handleContextMenu}
       onDoubleClick={onDoubleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       title={optionKey 
         ? `${field.key}: ${optionKey}${isPreview ? ' (preview)' : ''}` 
         : `${field.key} (${field.type}${field.variant !== 'single' ? ` - ${field.variant}` : ''})`}
+      style={{
+        width: resizingSize ? resizingSize.width * scale : scaledWidth,
+        height: resizingSize ? resizingSize.height * scale : scaledHeight,
+        fontSize: 12 * scale,
+      }}
     >
       {/* Render image/signature if available */}
       {hasImageData ? (
@@ -166,7 +204,7 @@ export function DraggableUnifiedField({
           )}
           <div className={cn(
             "flex-1 truncate text-xs font-mono",
-            isCheckbox && "text-center text-lg" // Larger checkmark
+            isCheckbox && "text-center text-lg"
           )}>
             {displayValue}
           </div>
@@ -180,5 +218,67 @@ export function DraggableUnifiedField({
         </div>
       )}
     </div>
+  );
+
+  // For resizable fields, wrap in ResizableBox
+  if (isResizable) {
+    return (
+      <Draggable
+        nodeRef={nodeRef}
+        position={{ x: scaledX, y: scaledY }}
+        onStart={() => setIsDragging(true)}
+        onStop={handleDragStop}
+        grid={isEnabled ? [gridSize, gridSize] : undefined}
+        bounds={{
+          left: 0,
+          top: 0,
+          right: pageWidth * scale - scaledWidth,
+          bottom: pageHeight * scale - scaledHeight
+        }}
+        scale={scale}
+      >
+        <div style={{ position: 'absolute' }}>
+          <ResizableBox
+            width={scaledWidth}
+            height={scaledHeight}
+            minConstraints={[50 * scale, 20 * scale]}
+            maxConstraints={[pageWidth * scale, pageHeight * scale]}
+            onResizeStop={handleResizeStop}
+            onResize={(_e, { size }) => {
+              setResizingSize({ 
+                width: size.width / scale, 
+                height: size.height / scale 
+              });
+            }}
+            resizeHandles={['se', 'e', 's']}
+            handleSize={[10, 10]}
+          >
+            {fieldContent}
+          </ResizableBox>
+        </div>
+      </Draggable>
+    );
+  }
+
+  // For non-resizable fields (checkboxes, options, previews)
+  return (
+    <Draggable
+      nodeRef={nodeRef}
+      position={{ x: scaledX, y: scaledY }}
+      onStart={() => setIsDragging(true)}
+      onStop={handleDragStop}
+      grid={isEnabled ? [gridSize, gridSize] : undefined}
+      bounds={{
+        left: 0,
+        top: 0,
+        right: pageWidth * scale - scaledWidth,
+        bottom: pageHeight * scale - scaledHeight
+      }}
+      scale={scale}
+    >
+      <div style={{ position: 'absolute' }}>
+        {fieldContent}
+      </div>
+    </Draggable>
   );
 }

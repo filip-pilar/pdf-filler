@@ -1,5 +1,4 @@
-import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { useDrag } from 'react-dnd';
 import { useFieldStore } from '@/store/fieldStore';
 import type { FieldType } from '@/types/field.types';
 import { cn } from '@/lib/utils';
@@ -19,32 +18,21 @@ export function DraggableFieldItem({ type, label, icon: Icon }: DraggableFieldIt
   const { pdfUrl } = useFieldStore();
   const isDisabled = !pdfUrl;
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: `new-field-${type}`,
-    data: {
+  const [{ isDragging }, drag] = useDrag({
+    type: 'NEW_FIELD',
+    item: {
       type: 'NEW_FIELD',
       fieldType: type,
     },
-    disabled: isDisabled,
+    canDrag: !isDisabled,
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
   });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    opacity: isDragging ? 0 : 1,
-  };
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...(!isDisabled ? listeners : {})}
-      {...(!isDisabled ? attributes : {})}
+      ref={drag}
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-md transition-all",
         isDisabled ? (
@@ -54,6 +42,7 @@ export function DraggableFieldItem({ type, label, icon: Icon }: DraggableFieldIt
         ),
         "border border-transparent",
         !isDisabled && "hover:border-border",
+        isDragging && "opacity-50",
       )}
       title={isDisabled ? "Load a PDF first to add fields" : `Drag to add ${label} field`}
     >
