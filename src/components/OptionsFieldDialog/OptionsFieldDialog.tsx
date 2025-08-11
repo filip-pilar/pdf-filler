@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,6 @@ import {
   MapPin,
   List,
   Info,
-  ArrowRight,
   Check
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -47,6 +46,19 @@ interface OptionMapping {
   customText?: string;
   placed?: boolean;
 }
+
+// Store placement state outside component for persistence
+interface PlacementState {
+  fieldKey: string;
+  placementMode: PlacementMode;
+  renderType: OptionRenderType;
+  optionMappings: OptionMapping[];
+  currentPlacingIndex: number;
+  combinedPosition: { x: number; y: number } | null;
+  editingFieldId?: string;
+}
+
+let placementStateRef: PlacementState | null = null;
 
 export function OptionsFieldDialog({ 
   open, 
@@ -78,6 +90,9 @@ export function OptionsFieldDialog({
   const [currentPlacingIndex, setCurrentPlacingIndex] = useState(-1);
   const [combinedPosition, setCombinedPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Track if we should auto-reopen after placement
+  const shouldReopenRef = useRef(false);
+
   // Generate simple field key for new fields
   const generateFieldKey = () => {
     const existingOptionsFields = unifiedFields.filter(f => f.variant === 'options');
@@ -92,9 +107,30 @@ export function OptionsFieldDialog({
     return `options_${nextNumber}`;
   };
 
-  // Load existing field if editing
+  // Restore state if we're coming back from placement
   useEffect(() => {
-    if (editingFieldId && open) {
+    if (open && placementStateRef) {
+      // Restore state from placement
+      setFieldKey(placementStateRef.fieldKey);
+      setPlacementMode(placementStateRef.placementMode);
+      setRenderType(placementStateRef.renderType);
+      setOptionMappings(placementStateRef.optionMappings);
+      setCurrentPlacingIndex(placementStateRef.currentPlacingIndex);
+      setCombinedPosition(placementStateRef.combinedPosition);
+      
+      // Check if placement is complete
+      const allPlaced = placementStateRef.optionMappings.every(m => m.placed);
+      if (allPlaced) {
+        // Auto-save if all options are placed
+        setTimeout(() => {
+          handleSave();
+        }, 100);
+      }
+      
+      // Clear the state
+      placementStateRef = null;
+    } else if (editingFieldId && open) {
+      // Load existing field if editing
       const field = getUnifiedFieldById(editingFieldId);
       
       if (field && field.variant === 'options') {
@@ -147,8 +183,8 @@ export function OptionsFieldDialog({
           e.preventDefault();
           handleAddOption();
         }
-        // Otherwise, if we're not placing and have at least one option, save
-        else if (!isPlacingOptions && !isPickingPosition && optionMappings.length > 0) {
+        // Otherwise, if we have all placed options, save
+        else if (optionMappings.length > 0 && optionMappings.every(m => m.placed)) {
           e.preventDefault();
           handleSave();
         }
@@ -157,7 +193,7 @@ export function OptionsFieldDialog({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, newOptionKey, isPlacingOptions, isPickingPosition, optionMappings, fieldKey]);
+  }, [open, newOptionKey, optionMappings, fieldKey]);
 
   // Position picker callback
   useEffect(() => {
@@ -201,14 +237,28 @@ export function OptionsFieldDialog({
   };
 
   const handleStartPlacement = () => {
+    // Save current state
+    placementStateRef = {
+      fieldKey,
+      placementMode,
+      renderType,
+      optionMappings,
+      currentPlacingIndex: 0,
+      combinedPosition,
+      editingFieldId
+    };
+    
+    // Close dialog to allow PDF interaction
+    onOpenChange(false);
+    shouldReopenRef.current = true;
+    
+    // Start placement
+    setIsPlacingOptions(true);
+    
     if (placementMode === 'combined') {
-      // For combined mode, pick a single position
-      setIsPlacingOptions(true);
       toast.info('Click on the PDF to place all options at one position');
       startPicking('text');
     } else {
-      // For separate mode, start placing the first option
-      setIsPlacingOptions(true);
       setCurrentPlacingIndex(0);
       toast.info(`Click to place option: ${optionMappings[0].key}`);
       startPicking(renderType === 'checkmark' ? 'checkmark' : 'text');
@@ -216,37 +266,48 @@ export function OptionsFieldDialog({
   };
 
   const handlePositionPicked = (position: { x: number; y: number; page: number }) => {
-    if (placementMode === 'combined') {
+    if (!placementStateRef) return;
+    
+    if (placementStateRef.placementMode === 'combined') {
       // Apply position to all options
-      setCombinedPosition({ x: position.x, y: position.y });
-      const updatedMappings = optionMappings.map(m => ({
+      placementStateRef.combinedPosition = { x: position.x, y: position.y };
+      placementStateRef.optionMappings = placementStateRef.optionMappings.map(m => ({
         ...m,
         position: { x: position.x, y: position.y },
         placed: true
       }));
-      setOptionMappings(updatedMappings);
+      
       setIsPlacingOptions(false);
-      toast.success('All options placed successfully!');
+      toast.success('All options placed! Opening dialog to save...');
+      
+      // Reopen dialog to save
+      setTimeout(() => {
+        onOpenChange(true);
+      }, 500);
     } else {
       // Place individual option
-      const updatedMappings = [...optionMappings];
-      updatedMappings[currentPlacingIndex] = {
-        ...updatedMappings[currentPlacingIndex],
+      const currentIndex = placementStateRef.currentPlacingIndex;
+      placementStateRef.optionMappings[currentIndex] = {
+        ...placementStateRef.optionMappings[currentIndex],
         position: { x: position.x, y: position.y },
         placed: true
       };
-      setOptionMappings(updatedMappings);
       
       // Move to next option or finish
-      const nextIndex = currentPlacingIndex + 1;
-      if (nextIndex < optionMappings.length) {
-        setCurrentPlacingIndex(nextIndex);
-        toast.info(`Click to place option: ${optionMappings[nextIndex].key}`);
-        startPicking(renderType === 'checkmark' ? 'checkmark' : 'text');
+      const nextIndex = currentIndex + 1;
+      if (nextIndex < placementStateRef.optionMappings.length) {
+        placementStateRef.currentPlacingIndex = nextIndex;
+        toast.info(`Click to place option: ${placementStateRef.optionMappings[nextIndex].key}`);
+        startPicking(placementStateRef.renderType === 'checkmark' ? 'checkmark' : 'text');
       } else {
         setIsPlacingOptions(false);
         setCurrentPlacingIndex(-1);
-        toast.success('All options placed successfully!');
+        toast.success('All options placed! Opening dialog to save...');
+        
+        // Reopen dialog to save
+        setTimeout(() => {
+          onOpenChange(true);
+        }, 500);
       }
     }
   };
@@ -317,17 +378,10 @@ export function OptionsFieldDialog({
       setIsPlacingOptions(false);
       setCurrentPlacingIndex(-1);
       setCombinedPosition(null);
+      placementStateRef = null;
+      shouldReopenRef.current = false;
     }
   };
-
-  const handleClose = () => {
-    if (!editingFieldId) {
-      resetDialog();
-    }
-  };
-
-  // Check if we're currently placing
-  const isCurrentlyPlacing = isPickingPosition || currentPlacingIndex >= 0;
 
   // Get description for render type
   const getRenderDescription = () => {
@@ -341,15 +395,22 @@ export function OptionsFieldDialog({
     }
   };
 
+  // Check if ready to place
+  const canStartPlacement = optionMappings.length > 0 && !optionMappings.every(m => m.placed);
+  const canSave = optionMappings.length > 0 && optionMappings.every(m => m.placed);
+
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      if (!open && !isCurrentlyPlacing) {
-        onOpenChange(false);
-        resetDialog();
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!newOpen) {
+        // If closing and not in placement mode, reset
+        if (!shouldReopenRef.current) {
+          resetDialog();
+        }
       }
+      onOpenChange(newOpen);
     }}>
-      <DialogContent className="sm:max-w-2xl max-w-[95vw] h-[90vh] sm:h-[600px] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
           <DialogTitle>
             {editingFieldId ? 'Edit Options Field' : 'Create Options Field'}
           </DialogTitle>
@@ -358,232 +419,159 @@ export function OptionsFieldDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 py-4">
+        <ScrollArea className="flex-1 px-4 sm:px-6">
+          <div className="space-y-4 pb-4">
             {/* Step 1: Field Key */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
-                  1
-                </div>
-                <h3 className="font-semibold text-sm sm:text-base">Field Key</h3>
-              </div>
-              
-              <div className="ml-9 sm:ml-10">
-                <Input
-                  id="field-key"
-                  value={fieldKey}
-                  onChange={(e) => {
-                    // Auto-clean the field key as user types
-                    const cleaned = e.target.value
-                      .replace(/\s+/g, '_')  // Replace spaces with underscores
-                      .replace(/[^a-zA-Z0-9_-]/g, ''); // Remove special chars
-                    setFieldKey(cleaned);
-                  }}
-                  placeholder="e.g., options_1"
-                  className="font-mono"
-                  disabled={isCurrentlyPlacing}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Field Key</Label>
+              <Input
+                id="field-key"
+                value={fieldKey}
+                onChange={(e) => {
+                  const cleaned = e.target.value
+                    .replace(/\s+/g, '_')
+                    .replace(/[^a-zA-Z0-9_-]/g, '');
+                  setFieldKey(cleaned);
+                }}
+                placeholder="e.g., options_1"
+                className="font-mono"
+              />
             </div>
 
             <Separator />
 
             {/* Step 2: Display Type */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
-                  2
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Display Type</Label>
+              <RadioGroup 
+                value={renderType} 
+                onValueChange={(v) => setRenderType(v as OptionRenderType)}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="checkmark" id="checkmark" />
+                  <Label htmlFor="checkmark" className="flex items-center gap-2 cursor-pointer">
+                    <CheckSquare className="h-4 w-4" />
+                    Checkmark (shows ✓)
+                  </Label>
                 </div>
-                <h3 className="font-semibold text-sm sm:text-base">Display Type</h3>
-              </div>
-              
-              <div className="ml-9 sm:ml-10 space-y-3 sm:space-y-4">
-                <RadioGroup 
-                  value={renderType} 
-                  onValueChange={(v) => setRenderType(v as OptionRenderType)}
-                  disabled={isCurrentlyPlacing}
-                >
-                  <div className="flex items-start space-x-2">
-                    <RadioGroupItem value="checkmark" id="checkmark" className="mt-1" />
-                    <Label htmlFor="checkmark" className="cursor-pointer">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <CheckSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="font-medium text-sm">Checkmark</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Show ✓ at the selected option(s) position(s)
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-start space-x-2">
-                    <RadioGroupItem value="text" id="text" className="mt-1" />
-                    <Label htmlFor="text" className="cursor-pointer">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Type className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="font-medium text-sm">Text Value</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Show the selected value(s) as text
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-start space-x-2">
-                    <RadioGroupItem value="custom" id="custom" className="mt-1" />
-                    <Label htmlFor="custom" className="cursor-pointer">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="font-medium text-sm">Custom Text</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Show custom text for selected option(s)
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+                
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="text" id="text" />
+                  <Label htmlFor="text" className="flex items-center gap-2 cursor-pointer">
+                    <Type className="h-4 w-4" />
+                    Text Value (shows the option text)
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="custom" id="custom" />
+                  <Label htmlFor="custom" className="flex items-center gap-2 cursor-pointer">
+                    <FileText className="h-4 w-4" />
+                    Custom Text (define custom text per option)
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
 
             <Separator />
 
             {/* Step 3: Placement Strategy */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
-                  3
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Placement Strategy</Label>
+              <RadioGroup 
+                value={placementMode} 
+                onValueChange={(v) => setPlacementMode(v as PlacementMode)}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="separate" id="separate" />
+                  <Label htmlFor="separate" className="flex items-center gap-2 cursor-pointer">
+                    <MapPin className="h-4 w-4" />
+                    Separate Positions (each option at its own spot)
+                  </Label>
                 </div>
-                <h3 className="font-semibold text-sm sm:text-base">Placement Strategy</h3>
-              </div>
-              
-              <div className="ml-9 sm:ml-10 space-y-3 sm:space-y-4">
-                <RadioGroup 
-                  value={placementMode} 
-                  onValueChange={(v) => setPlacementMode(v as PlacementMode)}
-                  disabled={isCurrentlyPlacing}
-                >
-                  <div className="flex items-start space-x-2">
-                    <RadioGroupItem value="separate" id="separate" className="mt-1" />
-                    <Label htmlFor="separate" className="cursor-pointer">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="font-medium text-sm">Separate Positions</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Each option at its own position (like radio buttons)
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-start space-x-2">
-                    <RadioGroupItem value="combined" id="combined" className="mt-1" />
-                    <Label htmlFor="combined" className="cursor-pointer">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <List className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="font-medium text-sm">Combined Position</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          All selected options appear at one position as a list
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+                
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="combined" id="combined" />
+                  <Label htmlFor="combined" className="flex items-center gap-2 cursor-pointer">
+                    <List className="h-4 w-4" />
+                    Combined Position (all options at one spot)
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
 
             <Separator />
 
             {/* Step 4: Option Keys */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-semibold">
-                  4
-                </div>
-                <h3 className="font-semibold text-sm sm:text-base">Option Keys</h3>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Options</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-option-key"
+                  value={newOptionKey}
+                  onChange={(e) => setNewOptionKey(e.target.value)}
+                  placeholder="e.g., male, approved, yes"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddOption();
+                    }
+                  }}
+                />
+                <Button 
+                  onClick={handleAddOption}
+                  disabled={!newOptionKey.trim()}
+                  size="sm"
+                >
+                  Add
+                </Button>
               </div>
               
-              <div className="ml-9 sm:ml-10 space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    id="new-option-key"
-                    value={newOptionKey}
-                    onChange={(e) => setNewOptionKey(e.target.value)}
-                    placeholder="e.g., male, female, other"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddOption();
-                      }
-                    }}
-                    disabled={isCurrentlyPlacing}
-                    className="text-sm"
-                  />
-                  <Button 
-                    onClick={handleAddOption}
-                    disabled={!newOptionKey.trim() || isCurrentlyPlacing}
-                    size="sm"
-                  >
-                    Add
-                  </Button>
+              {optionMappings.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {optionMappings.map((mapping) => (
+                    <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
+                      <Badge 
+                        variant={mapping.placed ? "default" : "outline"} 
+                        className="font-mono"
+                      >
+                        {mapping.key}
+                      </Badge>
+                      
+                      {renderType === 'custom' && (
+                        <Input
+                          value={mapping.customText || ''}
+                          onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
+                          placeholder="Custom text..."
+                          className="flex-1 h-8"
+                        />
+                      )}
+                      
+                      {mapping.placed && (
+                        <Check className="h-4 w-4 text-green-600" />
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveOption(mapping.key)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                
-                {optionMappings.length > 0 && (
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {optionMappings.map((mapping) => (
-                      <div key={mapping.key} className="flex items-center gap-2 p-2 bg-secondary/50 rounded">
-                        <Badge 
-                          variant={mapping.placed ? "default" : "outline"} 
-                          className="font-mono text-xs"
-                        >
-                          {mapping.key}
-                        </Badge>
-                        
-                        {renderType === 'custom' && (
-                          <Input
-                            value={mapping.customText || ''}
-                            onChange={(e) => handleUpdateCustomText(mapping.key, e.target.value)}
-                            placeholder="Custom text..."
-                            className="flex-1 h-7 text-xs"
-                            disabled={isCurrentlyPlacing}
-                          />
-                        )}
-                        
-                        {mapping.placed && (
-                          <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-                        )}
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveOption(mapping.key)}
-                          disabled={isCurrentlyPlacing}
-                          className="h-6 w-6 p-0"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Info Alert */}
             {getRenderDescription() && (
-              <Alert className="mx-4 sm:mx-0">
+              <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs sm:text-sm">
+                <AlertDescription>
                   {getRenderDescription()}
                 </AlertDescription>
               </Alert>
@@ -591,50 +579,32 @@ export function OptionsFieldDialog({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 border-t">
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
-            {!isCurrentlyPlacing ? (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    onOpenChange(false);
-                    handleClose();
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-                
-                {optionMappings.length > 0 && !optionMappings.every(m => m.placed) && (
-                  <Button 
-                    onClick={handleStartPlacement}
-                    className="w-full sm:w-auto"
-                  >
-                    <MousePointer className="h-4 w-4 mr-2" />
-                    Start Placement
-                  </Button>
-                )}
-                
-                {optionMappings.length > 0 && optionMappings.every(m => m.placed) && (
-                  <Button 
-                    onClick={handleSave}
-                    className="w-full sm:w-auto"
-                  >
-                    Save
-                  </Button>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center justify-center w-full gap-2 text-sm text-muted-foreground">
-                <MousePointer className="h-4 w-4 animate-pulse" />
-                {placementMode === 'combined' 
-                  ? 'Click on the PDF to place all options'
-                  : `Placing option ${currentPlacingIndex + 1} of ${optionMappings.length}: ${optionMappings[currentPlacingIndex]?.key}`
-                }
-              </div>
-            )}
-          </div>
+        <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 border-t pt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              onOpenChange(false);
+              resetDialog();
+            }}
+          >
+            Cancel
+          </Button>
+          
+          {canStartPlacement && (
+            <Button 
+              onClick={handleStartPlacement}
+              className="gap-2"
+            >
+              <MousePointer className="h-4 w-4" />
+              Start Placement
+            </Button>
+          )}
+          
+          {canSave && (
+            <Button onClick={handleSave}>
+              Save Field
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
