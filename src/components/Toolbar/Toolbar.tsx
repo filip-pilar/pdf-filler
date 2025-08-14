@@ -1,10 +1,18 @@
-import { Upload, FileJson, Database, FileText, AlertTriangle } from 'lucide-react';
+import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 import { Button } from '@/components/ui/button';
 import { ImportModal } from '@/components/ImportModal/ImportModal';
 import { ExportDialog } from '@/components/ExportModal/ExportDialog';
 import { GridControls } from '@/components/Toolbar/GridControls';
+import { exportDataAsJson, importDataFromJson, hasStoredData } from '@/utils/localStorage';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,11 +26,13 @@ import {
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { clearAll, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields } = useFieldStore();
+  const jsonImportRef = useRef<HTMLInputElement>(null);
+  const { clearAll, clearStorage, loadFromStorage, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields } = useFieldStore();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showNewProjectAlert, setShowNewProjectAlert] = useState(false);
   const [showUploadAlert, setShowUploadAlert] = useState(false);
+  const [showClearStorageAlert, setShowClearStorageAlert] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const activeFieldsCount = useUnifiedFields ? unifiedFields.length : fields.length;
@@ -74,6 +84,46 @@ export function Toolbar() {
   const handleExport = () => {
     setExportModalOpen(true);
   };
+  
+  const handleExportBackup = () => {
+    const jsonData = exportDataAsJson();
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pdf-filler-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        if (importDataFromJson(content)) {
+          loadFromStorage();
+          alert('Backup imported successfully!');
+        } else {
+          alert('Failed to import backup. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    }
+    event.target.value = '';
+  };
+  
+  const handleClearStorage = () => {
+    setShowClearStorageAlert(true);
+  };
+  
+  const confirmClearStorage = () => {
+    clearStorage();
+    setShowClearStorageAlert(false);
+  };
 
   return (
     <>
@@ -119,6 +169,36 @@ export function Toolbar() {
             Export
           </Button>
           
+          <div className="w-px h-6 bg-border mx-1" />
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Save className="h-4 w-4" />
+                Storage
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportBackup}>
+                <Download className="h-4 w-4 mr-2" />
+                Export Backup
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => jsonImportRef.current?.click()}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Backup
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleClearStorage}
+                className="text-destructive"
+                disabled={!hasStoredData()}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Local Storage
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button
             size="sm"
             onClick={handleNewProject}
@@ -131,6 +211,14 @@ export function Toolbar() {
             type="file"
             accept="application/pdf"
             onChange={handleFileUpload}
+            className="hidden"
+          />
+          
+          <input
+            ref={jsonImportRef}
+            type="file"
+            accept="application/json"
+            onChange={handleImportBackup}
             className="hidden"
           />
         </div>
@@ -183,6 +271,27 @@ export function Toolbar() {
             <AlertDialogCancel onClick={() => setPendingFile(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmUpload}>
               Upload New PDF
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={showClearStorageAlert} onOpenChange={setShowClearStorageAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Clear Local Storage?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all saved field configurations from your browser's local storage.
+              Consider exporting a backup first. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClearStorage} className="bg-destructive text-destructive-foreground">
+              Clear Storage
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

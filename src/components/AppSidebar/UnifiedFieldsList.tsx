@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   Type, 
   CheckSquare, 
@@ -9,7 +10,9 @@ import {
   ChevronDown,
   FileText,
   List,
-  Settings
+  Settings,
+  Plus,
+  Braces
 } from 'lucide-react';
 import {
   Collapsible,
@@ -26,6 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
+import { CompositeFieldDialog } from '@/components/CompositeFieldDialog';
 
 interface UnifiedFieldsListProps {
   onFieldClick?: (fieldId: string) => void;
@@ -37,6 +41,8 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
   
   // State for managing collapsed pages - start with all expanded
   const [collapsedPages, setCollapsedPages] = useState<Set<number>>(new Set());
+  const [showCompositeDialog, setShowCompositeDialog] = useState(false);
+  const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
 
   // Group fields by page number
   const fieldsByPage = enabledFields.reduce((acc, field) => {
@@ -56,6 +62,9 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
 
   // Get icon for field type/variant
   const getFieldIcon = (field: UnifiedField) => {
+    // For composite fields
+    if (field.type === 'composite-text') return Braces;
+    
     // For option fields, use icon based on renderType
     if (field.variant === 'options') {
       if (field.renderType === 'checkmark' || field.type === 'checkbox') return CheckSquare;
@@ -95,11 +104,32 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
     }
     setCollapsedPages(newCollapsed);
   };
+  
+  // Handle field click with special handling for composite fields
+  const handleFieldClick = (fieldId: string) => {
+    const field = unifiedFields.find(f => f.id === fieldId);
+    if (field?.type === 'composite-text') {
+      setEditingCompositeField(field);
+      setShowCompositeDialog(true);
+    } else {
+      onFieldClick?.(fieldId);
+    }
+  };
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center justify-between">
         <span>Fields ({enabledFields.length})</span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 px-2 py-0 text-xs gap-1"
+          onClick={() => setShowCompositeDialog(true)}
+          title="Create Composite Field"
+        >
+          <Plus className="h-3 w-3" />
+          <span>Composite</span>
+        </Button>
       </SidebarGroupLabel>
       
       <SidebarGroupContent>
@@ -145,7 +175,7 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
                             <SidebarMenuButton 
                               asChild
                               className="cursor-pointer"
-                              onClick={() => onFieldClick?.(field.id)}
+                              onClick={() => handleFieldClick(field.id)}
                             >
                               <div className="flex items-center justify-between gap-2 px-3 py-1.5">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -175,6 +205,20 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
           </div>
         )}
       </SidebarGroupContent>
+      
+      <CompositeFieldDialog
+        isOpen={showCompositeDialog}
+        onClose={() => {
+          setShowCompositeDialog(false);
+          setEditingCompositeField(undefined);
+        }}
+        editingField={editingCompositeField}
+        onSave={() => {
+          // Field is automatically saved to store by the dialog
+          setShowCompositeDialog(false);
+          setEditingCompositeField(undefined);
+        }}
+      />
     </SidebarGroup>
   );
 }

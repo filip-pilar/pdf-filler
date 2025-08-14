@@ -3,7 +3,8 @@ export type FieldType =
   | 'checkbox'
   | 'radio-group'
   | 'image'
-  | 'signature';
+  | 'signature'
+  | 'composite-text';
 
 export interface Field {
   type: FieldType;

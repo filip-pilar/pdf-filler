@@ -45,7 +45,7 @@ export function DraggableUnifiedField({
   
   // Content-specific states
   const [size, setSize] = useState(() => {
-    if (field.type === 'text') {
+    if (field.type === 'text' || field.type === 'composite-text') {
       return field.properties?.fontSize || 14;
     } else if (field.type === 'checkbox') {
       return field.size?.width || 20;
@@ -71,13 +71,14 @@ export function DraggableUnifiedField({
   const handleSizeChange = (newSize: number) => {
     if (isNaN(newSize)) return;
     
-    const minSize = field.type === 'text' ? 8 : 20;
-    const maxSize = field.type === 'text' ? 48 : 50;
+    const isTextType = field.type === 'text' || field.type === 'composite-text';
+    const minSize = isTextType ? 8 : 20;
+    const maxSize = isTextType ? 48 : 50;
     const clampedSize = Math.max(minSize, Math.min(maxSize, newSize));
     
     setSize(clampedSize);
     
-    if (field.type === 'text') {
+    if (isTextType) {
       const minHeight = clampedSize * 1.5;
       const updates: Partial<UnifiedField> = {
         properties: { ...field.properties, fontSize: clampedSize }
@@ -136,6 +137,11 @@ export function DraggableUnifiedField({
       return optionKey;
     }
     
+    if (field.type === 'composite-text') {
+      // Show the template for composite fields
+      return field.template || `{${field.key}}`;
+    }
+    
     if (field.type === 'checkbox') {
       return field.sampleValue ? '✓' : '';
     }
@@ -167,6 +173,7 @@ export function DraggableUnifiedField({
   const getDefaultSize = () => {
     switch (field.type) {
       case 'text': return { width: 120, height: 32 };
+      case 'composite-text': return { width: 200, height: 32 };
       case 'checkbox': return { width: 20, height: 20 };
       case 'image': return { width: 100, height: 100 };
       case 'signature': return { width: 200, height: 60 };

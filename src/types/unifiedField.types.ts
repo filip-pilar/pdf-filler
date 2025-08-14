@@ -5,6 +5,7 @@
  */
 
 import type { FieldType } from './field.types';
+import type { CompositeFormatting } from '@/utils/templateEngine';
 
 /**
  * Field variant determines how values are handled in the PDF
@@ -163,6 +164,25 @@ export interface UnifiedField {
    * If missing, assume legacy format (bottom edge)
    */
   positionVersion?: 'top-edge';
+  
+  /**
+   * Composite field template - for composite-text fields
+   * Uses {fieldName} syntax to reference other fields
+   * e.g., "{firstName} {lastName}" or "{addressLine1}, {city}, {state} {zip}"
+   */
+  template?: string;
+  
+  /**
+   * Field dependencies - automatically populated from template
+   * Lists all field keys referenced in the template
+   */
+  dependencies?: string[];
+  
+  /**
+   * Formatting options for composite fields
+   * Controls how empty values and separators are handled
+   */
+  compositeFormatting?: CompositeFormatting;
 }
 
 /**

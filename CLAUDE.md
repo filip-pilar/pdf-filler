@@ -26,11 +26,12 @@ npm run lint         # Run ESLint
 - **Build Tool**: Vite with React plugin
 - **Framework**: React 19 with TypeScript
 - **Routing**: React Router v7 (main app at `/`, import config at `/import-config`)
-- **State Management**: Zustand (see `src/store/fieldStore.ts`)
+- **State Management**: Zustand with middleware (subscribeWithSelector for auto-save)
 - **UI Components**: Radix UI primitives + shadcn/ui components
 - **Styling**: Tailwind CSS with custom theme
 - **PDF Handling**: pdf-lib for manipulation, react-pdf for rendering
 - **Drag & Drop**: react-dnd with HTML5 backend
+- **Persistence**: Browser localStorage with auto-save
 
 ### Field System Architecture
 
@@ -47,6 +48,7 @@ The application uses a **Unified Field Model** that handles all field types:
    - `checkbox`: Checkbox fields (boolean true/false)
    - `image`: Image fields
    - `signature`: Signature fields
+   - `composite-text`: Template-based fields that combine multiple data fields
    - Options fields support both checkmark and text rendering
 
 ### Import/Export Pipeline
@@ -68,11 +70,14 @@ The central `fieldStore` manages:
 - PDF file and pagination state
 - Grid snap settings
 - Migration flag (`useUnifiedFields`) for gradual transition
+- LocalStorage persistence with auto-save
 
 Key store methods:
 - Unified fields: `addUnifiedField`, `updateUnifiedField`, `deleteUnifiedField`
 - Query: `getUnifiedFieldById`, `getUnifiedFieldByKey`
 - PDF operations: `setPdfFile`, `setPdfUrl`, `setCurrentPage`
+- Composite fields: `createCompositeField`, `updateCompositeTemplate`, `validateCompositeTemplate`
+- Persistence: `loadFromStorage`, `clearStorage`
 
 ### Path Aliases
 
@@ -156,6 +161,52 @@ No test framework currently configured.
 
 ### Working with PDF Coordinates
 Always convert between PDF coordinates (bottom-left origin) and screen coordinates (top-left origin) using the height of the page.
+
+## Composite Fields System
+
+Composite fields allow combining multiple data fields into a single PDF field using templates:
+
+### Key Features
+- **Template Syntax**: Use `{fieldName}` to reference fields, supports nested paths like `{user.firstName}`
+- **Smart Formatting**: Automatically handles missing values, extra commas, and whitespace
+- **Visual Editor**: Dialog with template builder, field autocomplete, and live preview
+- **Dependency Tracking**: Automatically tracks which fields are used in templates
+
+### Creating Composite Fields
+1. Click "+ Composite" button in Fields sidebar
+2. Enter field key and template (e.g., `{firstName} {lastName}`)
+3. Configure formatting options (empty value behavior, separator handling)
+4. Preview with sample data
+5. Place on PDF like any other field
+
+### Template Examples
+```
+Full Name: {firstName} {lastName}
+Address: {addressLine1}, {city}, {state} {zipCode}
+Nested: {personal_data.firstName} {personal_data.lastName}
+```
+
+## LocalStorage Persistence
+
+The application automatically saves field configurations to browser localStorage:
+
+### What Gets Saved
+- **Field Configurations**: All field positions, types, properties (excluding sensitive sample data)
+- **Grid Settings**: Size, visibility, snap preferences
+- **PDF Metadata**: Filename and page count (not the actual PDF)
+- **Composite Templates**: Custom field combinations
+
+### Storage Operations
+- **Auto-Save**: Changes save automatically via Zustand subscriptions
+- **Export Backup**: Download JSON file with all configurations
+- **Import Backup**: Restore from previously exported JSON
+- **Clear Storage**: Remove all saved data (with confirmation)
+
+### Privacy & Security
+- No actual PDF data is stored
+- Sample values are filtered out for privacy
+- All data stays in browser localStorage
+- Export/import for team sharing and backups
 
 ## Migration Status
 

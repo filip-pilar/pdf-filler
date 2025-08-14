@@ -31,7 +31,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 interface UnifiedField {
   id: string;
   key: string;
-  type: 'text' | 'checkbox' | 'image' | 'signature' | 'logic';
+  type: 'text' | 'checkbox' | 'image' | 'signature' | 'logic' | 'composite-text';
   variant: 'single' | 'options';
   page: number;
   position: { x: number; y: number };
@@ -65,6 +65,13 @@ interface UnifiedField {
     autoSize?: boolean;
   };
   positionVersion?: 'top-edge';
+  template?: string;
+  dependencies?: string[];
+  compositeFormatting?: {
+    emptyValueBehavior: 'skip' | 'show-empty' | 'placeholder';
+    separatorHandling: 'smart' | 'literal';
+    whitespaceHandling: 'normalize' | 'preserve';
+  };
 }
 
 interface FillPdfRequest {
@@ -183,6 +190,51 @@ export async function POST(request: NextRequest) {
       return rgb(color.r / 255, color.g / 255, color.b / 255);
     };
     
+    // Helper to evaluate composite field templates
+    const evaluateTemplate = (
+      template: string, 
+      data: Record<string, any>, 
+      formatting?: { 
+        emptyValueBehavior?: 'skip' | 'show-empty' | 'placeholder';
+        separatorHandling?: 'smart' | 'literal';
+        whitespaceHandling?: 'normalize' | 'preserve';
+      }
+    ) => {
+      let result = template.replace(/{([^}]+)}/g, (match, fieldPath) => {
+        const keys = fieldPath.split('.');
+        let value: any = data;
+        
+        for (const key of keys) {
+          if (value == null || typeof value !== 'object') {
+            return formatting?.emptyValueBehavior === 'placeholder' ? \`[\${fieldPath}]\` : '';
+          }
+          value = value[key];
+        }
+        
+        if (value == null || value === '') {
+          return formatting?.emptyValueBehavior === 'placeholder' ? \`[\${fieldPath}]\` : '';
+        }
+        
+        return String(value).trim();
+      });
+      
+      // Smart separator handling
+      if (formatting?.separatorHandling === 'smart') {
+        result = result
+          .replace(/,\\s*,/g, ',')     // Multiple commas
+          .replace(/^\\s*,\\s*/, '')    // Leading comma
+          .replace(/\\s*,\\s*$/, '')    // Trailing comma
+          .replace(/\\s+/g, ' ')        // Multiple spaces
+          .trim();
+      }
+      
+      if (formatting?.whitespaceHandling === 'normalize') {
+        result = result.replace(/\\s+/g, ' ').trim();
+      }
+      
+      return result;
+    };
+    
     // Process each field
     for (const field of fields) {
       if (!field.enabled) continue;
@@ -197,7 +249,12 @@ export async function POST(request: NextRequest) {
       const { height: pageHeight } = page.getSize();
       
       // Get value for this field
-      const value = data[field.key] ?? field.properties?.defaultValue;
+      let value: any;
+      if (field.type === 'composite-text' && field.template) {
+        value = evaluateTemplate(field.template, data, field.compositeFormatting);
+      } else {
+        value = data[field.key] ?? field.properties?.defaultValue;
+      }
       if (value === undefined || value === null || value === '') continue;
       
       // Convert position (handle top-edge vs bottom-edge)
@@ -327,6 +384,7 @@ export async function POST(request: NextRequest) {
             break;
             
           case 'text':
+          case 'composite-text':
           default:
             const text = String(value);
             const fontSize = field.properties?.fontSize || 10;

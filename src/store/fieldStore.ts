@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 import type { Field, FieldType } from '../types/field.types';
 // Legacy types - temporarily defined here
 type LogicField = any;
@@ -7,6 +8,16 @@ type FieldAction = any;
 type BooleanField = any;
 type BooleanFieldAction = any;
 import type { UnifiedField, FieldMigrationResult } from '../types/unifiedField.types';
+import { TemplateEngine } from '../utils/templateEngine';
+import { 
+  saveFieldsToStorage, 
+  saveGridSettings, 
+  savePdfMetadata,
+  loadFieldsFromStorage,
+  loadGridSettings,
+  loadPdfMetadata,
+  clearStoredData
+} from '../utils/localStorage';
 
 export type GridSize = 10 | 25 | 50 | 100;
 
@@ -115,8 +126,19 @@ interface FieldState {
   convertBooleanFieldToUnified: (booleanField: BooleanField) => UnifiedField[];
   migrateAllToUnified: () => FieldMigrationResult;
   
+  // Composite field operations
+  createCompositeField: (template: string, position: { x: number; y: number }, page: number) => UnifiedField;
+  updateCompositeTemplate: (id: string, template: string) => void;
+  validateCompositeTemplate: (template: string) => { isValid: boolean; dependencies: string[]; errors: string[] };
+  getCompositeFieldDependencies: (id: string) => string[];
+  getAvailableFieldKeys: () => string[];
+  
   // Clear all
   clearAll: () => void;
+  
+  // Persistence operations
+  loadFromStorage: () => void;
+  clearStorage: () => void;
   
   // PDF operations
   setPdfFile: (file: File) => void;
@@ -181,7 +203,8 @@ const getDefaultFieldSize = (type: FieldType) => {
 };
 
 
-export const useFieldStore = create<FieldState>((set, get) => ({
+export const useFieldStore = create<FieldState>()(
+  subscribeWithSelector((set, get) => ({
   // Feature flag
   useUnifiedFields: true, // Migration enabled!
   
@@ -1001,6 +1024,89 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     return { fields: unifiedFields, warnings };
   },
   
+  // Composite field operations
+  createCompositeField: (template, position, page) => {
+    const state = get();
+    const dependencies = TemplateEngine.extractDependencies(template);
+    
+    const newField: Partial<UnifiedField> = {
+      type: 'composite-text',
+      variant: 'single',
+      template,
+      dependencies,
+      position,
+      page,
+      size: { width: 200, height: 32 },
+      enabled: true,
+      structure: 'simple',
+      placementCount: 1,
+      compositeFormatting: {
+        emptyValueBehavior: 'skip',
+        separatorHandling: 'smart',
+        whitespaceHandling: 'normalize'
+      }
+    };
+    
+    return state.addUnifiedField(newField);
+  },
+  
+  updateCompositeTemplate: (id, template) => {
+    const dependencies = TemplateEngine.extractDependencies(template);
+    get().updateUnifiedField(id, { template, dependencies });
+  },
+  
+  validateCompositeTemplate: (template) => {
+    const state = get();
+    const availableKeys = state.getAvailableFieldKeys();
+    const validation = TemplateEngine.validate(template, availableKeys);
+    
+    return {
+      isValid: validation.isValid,
+      dependencies: validation.dependencies,
+      errors: validation.errors.map(e => e.message)
+    };
+  },
+  
+  getCompositeFieldDependencies: (id) => {
+    const field = get().getUnifiedFieldById(id);
+    return field?.dependencies || [];
+  },
+  
+  getAvailableFieldKeys: () => {
+    const state = get();
+    const keys = new Set<string>();
+    
+    // Add unified field keys
+    state.unifiedFields.forEach(field => {
+      if (field.type !== 'composite-text') {
+        keys.add(field.key);
+        
+        // If the key contains dots (nested structure), also add parent paths
+        // e.g., for "personal_data.firstName", add "personal_data.firstName"
+        // This helps with template completion
+        if (field.key.includes('.')) {
+          const parts = field.key.split('.');
+          let path = '';
+          for (const part of parts) {
+            path = path ? `${path}.${part}` : part;
+            keys.add(path);
+          }
+        }
+      }
+    });
+    
+    // Add option mappings as nested keys
+    state.unifiedFields.forEach(field => {
+      if (field.variant === 'options' && field.optionMappings) {
+        field.optionMappings.forEach(option => {
+          keys.add(`${field.key}.${option.key}`);
+        });
+      }
+    });
+    
+    return Array.from(keys).sort();
+  },
+  
   // PDF operations
   setPdfFile: (file) => set({ pdfFile: file }),
   setPdfUrl: (url) => set({ pdfUrl: url }),
@@ -1016,4 +1122,80 @@ export const useFieldStore = create<FieldState>((set, get) => ({
     gridEnabled: !state.gridEnabled, 
     showGrid: !state.gridEnabled 
   })),
-}));
+  
+  // Persistence operations
+  loadFromStorage: () => {
+    const fields = loadFieldsFromStorage();
+    const gridSettings = loadGridSettings();
+    const pdfMetadata = loadPdfMetadata();
+    
+    if (fields && fields.length > 0) {
+      set({ unifiedFields: fields });
+    }
+    
+    if (gridSettings) {
+      set({
+        gridEnabled: gridSettings.gridEnabled,
+        gridSize: gridSettings.gridSize as GridSize,
+        showGrid: gridSettings.showGrid,
+      });
+    }
+    
+    if (pdfMetadata) {
+      set({ totalPages: pdfMetadata.totalPages });
+    }
+  },
+  
+  clearStorage: () => {
+    clearStoredData();
+    set({
+      unifiedFields: [],
+      selectedUnifiedFieldId: null,
+      fields: [],
+      selectedFieldKey: null,
+      logicFields: [],
+      booleanFields: [],
+    });
+  },
+})));
+
+// Auto-save subscriptions
+// Save unified fields whenever they change
+useFieldStore.subscribe(
+  (state) => state.unifiedFields,
+  (fields) => {
+    saveFieldsToStorage(fields);
+  }
+);
+
+// Save grid settings whenever they change
+useFieldStore.subscribe(
+  (state) => ({
+    gridEnabled: state.gridEnabled,
+    gridSize: state.gridSize,
+    showGrid: state.showGrid,
+  }),
+  (settings) => {
+    saveGridSettings(settings);
+  }
+);
+
+// Save PDF metadata when it changes
+useFieldStore.subscribe(
+  (state) => ({
+    fileName: state.pdfFile?.name,
+    fileSize: state.pdfFile?.size,
+    totalPages: state.totalPages,
+    lastModified: state.pdfFile?.lastModified,
+  }),
+  (metadata) => {
+    if (metadata.totalPages > 0) {
+      savePdfMetadata({
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        totalPages: metadata.totalPages,
+        lastModified: metadata.lastModified,
+      });
+    }
+  }
+);

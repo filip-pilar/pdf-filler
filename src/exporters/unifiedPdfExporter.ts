@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, PDFFont } from 'pdf-lib';
 import type { UnifiedField } from '@/types/unifiedField.types';
+import { TemplateEngine } from '@/utils/templateEngine';
 
 interface ExportOptions {
   fields: UnifiedField[];
@@ -60,7 +61,14 @@ export async function exportUnifiedPDF(
     
     for (const field of pageFields) {
       // Determine the value to render
-      const value = fieldValues[field.key] ?? field.properties?.defaultValue ?? field.sampleValue;
+      let value: any;
+      
+      // Handle composite fields by evaluating their template
+      if (field.type === 'composite-text' && field.template) {
+        value = TemplateEngine.evaluate(field.template, fieldValues, field.compositeFormatting);
+      } else {
+        value = fieldValues[field.key] ?? field.properties?.defaultValue ?? field.sampleValue;
+      }
       
       if (value === undefined || value === null || value === '') continue;
       
@@ -269,6 +277,7 @@ async function renderSingleField(
       break;
       
     case 'text':
+    case 'composite-text':
     default:
       const text = String(value);
       const fontSize = field.properties?.fontSize || 10;
