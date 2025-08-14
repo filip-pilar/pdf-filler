@@ -120,6 +120,11 @@ interface FieldState {
   selectUnifiedField: (id: string | null) => void;
   deselectUnifiedField: () => void;
   
+  // Lock operations
+  toggleUnifiedFieldLock: (id: string) => void;
+  lockUnifiedField: (id: string) => void;
+  unlockUnifiedField: (id: string) => void;
+  
   // Migration operations
   convertFieldToUnified: (field: Field) => UnifiedField;
   convertLogicFieldToUnified: (logicField: LogicField) => UnifiedField[];
@@ -828,6 +833,30 @@ export const useFieldStore = create<FieldState>()(
     set((state) => ({
       unifiedFields: state.unifiedFields.filter(f => f.id !== id),
       selectedUnifiedFieldId: state.selectedUnifiedFieldId === id ? null : state.selectedUnifiedFieldId
+    }));
+  },
+  
+  toggleUnifiedFieldLock: (id) => {
+    set((state) => ({
+      unifiedFields: state.unifiedFields.map(f => 
+        f.id === id ? { ...f, locked: !f.locked } : f
+      )
+    }));
+  },
+  
+  lockUnifiedField: (id) => {
+    set((state) => ({
+      unifiedFields: state.unifiedFields.map(f => 
+        f.id === id ? { ...f, locked: true } : f
+      )
+    }));
+  },
+  
+  unlockUnifiedField: (id) => {
+    set((state) => ({
+      unifiedFields: state.unifiedFields.map(f => 
+        f.id === id ? { ...f, locked: false } : f
+      )
     }));
   },
   

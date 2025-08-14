@@ -5,7 +5,7 @@ import { useFieldStore } from '@/store/fieldStore';
 import { useGridSnap } from '@/hooks/useGridSnap';
 import type { UnifiedField, OptionRenderType } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
-import { Image, PenTool, Move, Settings, Minus, Plus } from 'lucide-react';
+import { Image, PenTool, Move, Settings, Minus, Plus, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -397,8 +397,9 @@ export function DraggableUnifiedField({
   const fieldContent = (
     <div
       className={cn(
-        "border rounded cursor-move overflow-hidden transition-shadow",
-        "hover:shadow-md hover:z-10",
+        "border rounded overflow-hidden transition-shadow relative",
+        field.locked ? "cursor-default opacity-80 border-dashed" : "cursor-move",
+        !field.locked && "hover:shadow-md hover:z-10",
         isSelected 
           ? "border-primary bg-primary/5 shadow-lg z-20"
           : isEmptyCheckbox 
@@ -406,19 +407,19 @@ export function DraggableUnifiedField({
             : hasValue
               ? "border-border/50 bg-background/20"
               : "border-border bg-background/40", // Slightly more visible for empty fields
-        isPreview && "border-dashed opacity-60",
-        field.variant === 'options' && !isPreview && "border-dotted",
+        isPreview && !field.locked && "border-dashed opacity-60",
+        field.variant === 'options' && !isPreview && !field.locked && "border-dotted",
         isDragging && "opacity-50 cursor-grabbing",
         isHovered && !isDragging && "shadow-lg"
       )}
       onContextMenu={handleContextMenu}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => !field.locked && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      title={optionKey 
+      title={field.locked ? undefined : (optionKey 
         ? `${field.key}: ${optionKey}${isPreview ? ' (preview)' : ''}` 
-        : `${field.key} (${field.type}${field.variant !== 'single' ? ` - ${field.variant}` : ''})`}
+        : `${field.key} (${field.type}${field.variant !== 'single' ? ` - ${field.variant}` : ''})`)}
       style={{
         width: '100%',
         height: '100%',
@@ -444,14 +445,16 @@ export function DraggableUnifiedField({
           bottom: (pageHeight - fieldHeight) * scale
         }}
         cancel=".react-resizable-handle, .no-drag"
+        disabled={!!field.locked}
       >
         <div ref={nodeRef} style={{ position: 'absolute', width: scaledWidth, height: scaledHeight }}>
-          {/* Control bar above field */}
-          <div className={cn(
-            "absolute flex items-center gap-1 transition-all duration-150",
-            "-top-7 left-0 z-10",
-            isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}>
+          {/* Control bar above field - hidden when field is locked */}
+          {!field.locked && (
+            <div className={cn(
+              "absolute flex items-center gap-1 transition-all duration-150",
+              "-top-7 left-0 z-10",
+              isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}>
             {/* Drag handle */}
             <div className={cn(
               "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
@@ -542,7 +545,8 @@ export function DraggableUnifiedField({
                 )}
               </>
             )}
-          </div>
+            </div>
+          )}
           
           <ResizableBox
             width={scaledWidth}
@@ -560,7 +564,7 @@ export function DraggableUnifiedField({
             lockAspectRatio={field.type === 'checkbox'}
             onResizeStop={handleResizeStop}
             onResize={handleResize}
-            resizeHandles={isSelected ? ['se', 'e', 's'] : []}
+            resizeHandles={isSelected && !field.locked ? ['se', 'e', 's'] : []}
             draggableOpts={{ grid: isEnabled ? [gridSize * scale, gridSize * scale] : undefined }}
           >
             {fieldContent}
@@ -585,6 +589,7 @@ export function DraggableUnifiedField({
         bottom: (pageHeight - fieldHeight) * scale
       }}
       cancel=".no-drag"
+      disabled={!!field.locked}
     >
       <div 
         ref={nodeRef} 
@@ -594,12 +599,13 @@ export function DraggableUnifiedField({
           height: scaledHeight 
         }}
       >
-        {/* Control bar above field - same as resizable fields */}
-        <div className={cn(
-          "absolute flex items-center gap-1 transition-all duration-150",
-          "-top-7 left-0 z-10",
-          isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}>
+        {/* Control bar above field - hidden when field is locked */}
+        {!field.locked && (
+          <div className={cn(
+            "absolute flex items-center gap-1 transition-all duration-150",
+            "-top-7 left-0 z-10",
+            isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}>
           {/* Drag handle */}
           <div className={cn(
             "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
@@ -662,7 +668,8 @@ export function DraggableUnifiedField({
               />
             </div>
           )}
-        </div>
+          </div>
+        )}
         
         {fieldContent}
       </div>

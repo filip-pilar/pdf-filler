@@ -183,6 +183,13 @@ export interface UnifiedField {
    * Controls how empty values and separators are handled
    */
   compositeFormatting?: CompositeFormatting;
+  
+  /**
+   * Lock state - prevents field from being dragged when true
+   * Locked fields can only be edited via the sidebar edit dialog
+   * Default: false for backward compatibility
+   */
+  locked?: boolean;
 }
 
 /**

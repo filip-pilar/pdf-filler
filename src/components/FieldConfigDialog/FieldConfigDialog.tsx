@@ -9,6 +9,7 @@ import { ImageUpload } from '@/components/ImageUpload/ImageUpload';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { sanitizeFieldKey, isValidFieldKey } from '@/lib/keyValidation';
+import { Lock } from 'lucide-react';
 
 interface FieldConfigDialogProps {
   field: UnifiedField | null;
@@ -32,11 +33,13 @@ export function FieldConfigDialog({
   const [checkboxValue, setCheckboxValue] = useState(false);
   const [fieldKeyError, setFieldKeyError] = useState('');
   const [signatureDimensions, setSignatureDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
   
   // Initialize form when field changes
   useEffect(() => {
     if (field) {
       setFieldKey(field.key || '');
+      setIsLocked(!!field.locked);
       
       if (field.type === 'checkbox') {
         setCheckboxValue(!!field.sampleValue);
@@ -91,7 +94,8 @@ export function FieldConfigDialog({
     // Update the field with dimensions for signature fields
     const updateData: any = {
       key: cleanedKey,
-      sampleValue: finalSampleValue
+      sampleValue: finalSampleValue,
+      locked: isLocked
     };
     
     // If it's a signature field with calculated dimensions, update the field dimensions
@@ -167,6 +171,27 @@ export function FieldConfigDialog({
               </p>
             )}
           </div>
+          
+          {/* Lock position toggle */}
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="lock-position"
+              checked={isLocked}
+              onCheckedChange={(checked) => setIsLocked(!!checked)}
+            />
+            <Label 
+              htmlFor="lock-position" 
+              className="text-sm font-normal cursor-pointer flex items-center gap-2"
+            >
+              <Lock className="h-3 w-3" />
+              Lock position
+            </Label>
+          </div>
+          {isLocked && (
+            <p className="text-xs text-muted-foreground pl-6">
+              When locked, this field cannot be dragged. Edit via sidebar only.
+            </p>
+          )}
           
           {/* Field type-specific inputs */}
           {field.type === 'text' && (

@@ -12,7 +12,9 @@ import {
   List,
   Settings,
   Plus,
-  Braces
+  Braces,
+  Lock,
+  LockOpen
 } from 'lucide-react';
 import {
   Collapsible,
@@ -30,13 +32,14 @@ import {
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { CompositeFieldDialog } from '@/components/CompositeFieldDialog';
+import { cn } from '@/lib/utils';
 
 interface UnifiedFieldsListProps {
   onFieldClick?: (fieldId: string) => void;
 }
 
 export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
-  const { unifiedFields, totalPages, pdfUrl } = useFieldStore();
+  const { unifiedFields, totalPages, pdfUrl, toggleUnifiedFieldLock } = useFieldStore();
   const enabledFields = unifiedFields.filter(f => f.enabled);
   
   // State for managing collapsed pages - start with all expanded
@@ -174,7 +177,10 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
                           <SidebarMenuItem key={field.id}>
                             <SidebarMenuButton 
                               asChild
-                              className="cursor-pointer"
+                              className={cn(
+                                "cursor-pointer",
+                                field.locked && "bg-muted/50"
+                              )}
                               onClick={() => handleFieldClick(field.id)}
                             >
                               <div className="flex items-center justify-between gap-2 px-3 py-1.5">
@@ -183,11 +189,32 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
                                   <span className="text-xs font-mono truncate">
                                     {field.key}
                                   </span>
+                                  {field.locked && (
+                                    <Lock className="h-3 w-3 text-muted-foreground" />
+                                  )}
                                   {field.variant === 'options' && (
                                     <Settings className="h-3 w-3 text-muted-foreground opacity-50" />
                                   )}
                                 </div>
-                                {variantBadge}
+                                <div className="flex items-center gap-1">
+                                  {variantBadge}
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 hover:bg-transparent"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleUnifiedFieldLock(field.id);
+                                    }}
+                                    title={field.locked ? "Unlock field" : "Lock field"}
+                                  >
+                                    {field.locked ? (
+                                      <Lock className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <LockOpen className="h-3 w-3 text-muted-foreground opacity-50 hover:opacity-100" />
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
