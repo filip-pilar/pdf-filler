@@ -86,8 +86,10 @@ export function FieldConfigDialog({
     
     // If it's a signature field with calculated dimensions, update the field dimensions
     if (field.type === 'signature' && signatureDimensions && finalSampleValue) {
-      updateData.width = signatureDimensions.width;
-      updateData.height = signatureDimensions.height;
+      updateData.size = {
+        width: signatureDimensions.width,
+        height: signatureDimensions.height
+      };
     }
     
     updateUnifiedField(field.id, updateData);
