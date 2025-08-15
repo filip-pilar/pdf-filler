@@ -29,7 +29,7 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
   }, []);
 
   const generateSampleValues = () => {
-    const values: Record<string, any> = {};
+    const values: Record<string, string | boolean | number | string[]> = {};
     
     if (unifiedFields) {
       for (const field of unifiedFields) {
@@ -49,7 +49,7 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
               case 'checkbox':
                 values[field.key] = true;
                 break;
-              case 'text':
+              case 'text': {
                 // Generate contextual sample data
                 const key = field.key.toLowerCase();
                 if (key.includes('email')) {
@@ -72,6 +72,7 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
                   values[field.key] = `Sample ${field.key}`;
                 }
                 break;
+              }
               default:
                 values[field.key] = field.properties?.defaultValue || '';
             }
@@ -114,10 +115,8 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
       // Generate sample values for preview
       const sampleValues = generateSampleValues();
       
-      let filledPdfBytes: Uint8Array;
-      
       // Use unified exporter
-      filledPdfBytes = await exportUnifiedPDF(pdfBytes, {
+      const filledPdfBytes = await exportUnifiedPDF(pdfBytes, {
         fields: unifiedFields,
         fieldValues: sampleValues
       });

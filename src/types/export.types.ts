@@ -1,6 +1,12 @@
 import type { Field } from './field.types';
 // Legacy type - temporarily defined here
-type LogicFieldExport = any;
+type LogicFieldExport = {
+  key: string;
+  type: string;
+  position?: { x: number; y: number };
+  page?: number;
+  [key: string]: unknown;
+};
 
 export interface ExportConfig {
   version: string;

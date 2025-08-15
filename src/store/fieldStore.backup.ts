@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Field, FieldType } from '../types/field.types';

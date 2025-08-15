@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -49,22 +50,7 @@ export function FieldConfigDialog({
     }
   }, [field]);
   
-  // Handle Enter key to save
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (open && e.key === 'Enter' && !e.shiftKey) {
-        // Don't submit if in a textarea
-        if (e.target instanceof HTMLTextAreaElement) return;
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, fieldKey, sampleValue, checkboxValue]);
-  
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!field) return;
     
     // Clean the field key
@@ -82,7 +68,7 @@ export function FieldConfigDialog({
     setFieldKeyError('');
     
     // Prepare sample value based on field type
-    let finalSampleValue: any = undefined;
+    let finalSampleValue: string | boolean | undefined = undefined;
     if (field.type === 'checkbox') {
       finalSampleValue = checkboxValue;
     } else if (field.type === 'text') {
@@ -92,7 +78,7 @@ export function FieldConfigDialog({
     }
     
     // Update the field with dimensions for signature fields
-    const updateData: any = {
+    const updateData: Partial<UnifiedField> = {
       key: cleanedKey,
       sampleValue: finalSampleValue,
       locked: isLocked
@@ -108,7 +94,22 @@ export function FieldConfigDialog({
     
     onSave?.();
     onOpenChange(false);
-  };
+  }, [field, fieldKey, sampleValue, checkboxValue, onSave, onOpenChange, updateUnifiedField, setFieldKeyError, isLocked, signatureDimensions]);
+  
+  // Handle Enter key to save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (open && e.key === 'Enter' && !e.shiftKey) {
+        // Don't submit if in a textarea
+        if (e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleSave]);
   
   const handleDelete = () => {
     if (!field) return;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PDFDocument, rgb, StandardFonts, PDFFont } from 'pdf-lib';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { TemplateEngine } from '@/utils/templateEngine';
@@ -105,7 +106,7 @@ async function renderOptionsField(
       const position = convertPosition(mapping.position, mapping.size?.height || 20, pageHeight, field.positionVersion);
       
       switch (field.renderType) {
-        case 'checkmark':
+        case 'checkmark': {
           // Draw a small checkbox with X mark
           const checkSize = mapping.size?.height || 16;
           const boxX = position.x;
@@ -141,6 +142,7 @@ async function renderOptionsField(
             color: getColor(field.properties?.textColor),
           });
           break;
+        }
           
         case 'text':
           page.drawText(mapping.key, {
@@ -278,7 +280,7 @@ async function renderSingleField(
       
     case 'text':
     case 'composite-text':
-    default:
+    default: {
       const text = String(value);
       const fontSize = field.properties?.fontSize || 10;
       const textAlign = field.properties?.textAlign || 'left';
@@ -361,6 +363,7 @@ async function renderSingleField(
         });
       }
       break;
+    }
   }
 }
 

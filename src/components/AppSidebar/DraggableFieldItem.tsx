@@ -32,7 +32,7 @@ export function DraggableFieldItem({ type, label, icon: Icon }: DraggableFieldIt
 
   return (
     <div
-      ref={drag as any}
+      ref={drag as unknown as React.RefObject<HTMLDivElement>}
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-md transition-all",
         isDisabled ? (

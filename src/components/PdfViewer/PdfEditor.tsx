@@ -21,11 +21,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 
-interface PdfEditorProps {
-  onDragStateChange?: (isDragging: boolean) => void;
-}
-
-export function PdfEditor({ }: PdfEditorProps = {}) {
+export function PdfEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
   const [containerBounds, setContainerBounds] = useState({ left: 0, width: 0 });

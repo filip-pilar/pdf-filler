@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,

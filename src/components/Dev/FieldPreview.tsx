@@ -52,7 +52,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
           </div>
         );
 
-      case 'radio-group':
+      case 'radio-group': {
         const radioLayout = mapping.layoutDirection === 'horizontal' 
           ? 'flex-row gap-4' 
           : mapping.layoutDirection === 'grid'
@@ -80,9 +80,10 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
             </RadioGroup>
           </div>
         );
+      }
 
       case 'checkbox-group':
-      case 'checkbox-set':
+      case 'checkbox-set': {
         const checkboxLayout = mapping.layoutDirection === 'horizontal' 
           ? 'flex-row gap-4' 
           : mapping.layoutDirection === 'grid'
@@ -113,6 +114,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
             </div>
           </div>
         );
+      }
 
       case 'single':
         if (mapping.type === 'checkbox') {

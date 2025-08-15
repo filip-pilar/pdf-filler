@@ -23,7 +23,7 @@ export function generateUnifiedJavaScriptCode(
   if (framework === 'express') {
     return generateExpressService(includeTypes, moduleType);
   } else if (framework === 'hono') {
-    return generateHonoService(includeTypes);
+    return generateHonoService();
   }
   
   return generateVanillaService(sampleFields, includeTypes, moduleType);
@@ -382,7 +382,7 @@ app.listen(PORT, () => {
 // Add the fillPDF function from vanilla service here...`;
 }
 
-function generateHonoService(_includeTypes: boolean): string {
+function generateHonoService(): string {
   return `import { Hono } from 'hono';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 

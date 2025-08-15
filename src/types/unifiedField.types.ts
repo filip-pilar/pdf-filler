@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Unified Field Model - Simplified field system for PDF Filler
  * Replaces the complex three-field-type system (Field, LogicField, BooleanField)

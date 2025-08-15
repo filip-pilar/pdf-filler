@@ -21,7 +21,7 @@ export class TemplateEngine {
    */
   static evaluate(
     template: string, 
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     formatting?: CompositeFormatting
   ): string {
     let result = template.replace(/{([^}]+)}/g, (_, fieldPath) => {
@@ -106,9 +106,9 @@ export class TemplateEngine {
   /**
    * Gets nested value from an object using dot notation
    */
-  private static getNestedValue(obj: Record<string, any>, path: string): any {
+  private static getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     const keys = path.split('.');
-    let value = obj;
+    let value: any = obj;
     
     for (const key of keys) {
       if (value == null || typeof value !== 'object') {

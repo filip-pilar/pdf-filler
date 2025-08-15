@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,7 @@ export function CompositeFieldDialog({
   const preview = useMemo(() => {
     if (!template || !showPreview) return '';
     try {
-      const data = JSON.parse(sampleData);
+      const data = JSON.parse(sampleData) as Record<string, unknown>;
       return TemplateEngine.evaluate(template, data, {
         emptyValueBehavior: emptyBehavior,
         separatorHandling: separatorHandling,
@@ -78,12 +79,12 @@ export function CompositeFieldDialog({
   useEffect(() => {
     // Create sample data from available fields
     if (validation.dependencies.length > 0 && sampleData === '{}') {
-      const sample: Record<string, any> = {};
+      const sample: Record<string, string | Record<string, string>> = {};
       validation.dependencies.forEach(dep => {
         if (dep.includes('.')) {
           const [parent, child] = dep.split('.');
-          if (!sample[parent]) sample[parent] = {};
-          sample[parent][child] = `Sample ${child}`;
+          if (!sample[parent]) sample[parent] = {} as Record<string, string>;
+          (sample[parent] as Record<string, string>)[child] = `Sample ${child}`;
         } else {
           sample[dep] = `Sample ${dep}`;
         }

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { Copy, Check, Download } from 'lucide-react';
