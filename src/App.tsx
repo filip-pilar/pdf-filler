@@ -13,16 +13,11 @@ import { Toolbar } from '@/components/Toolbar/Toolbar';
 import { StatusBar } from '@/components/StatusBar/StatusBar';
 
 function App() {
-  const { pdfFile, loadFromStorage, isRightSidebarOpen, setRightSidebarOpen } = useFieldStore();
+  const { pdfFile, isRightSidebarOpen } = useFieldStore();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
-  
-  // Load saved data on app initialization
-  useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
   
   // Auto-expand left sidebar when PDF is loaded
   useEffect(() => {

@@ -24,7 +24,7 @@ export class TemplateEngine {
     data: Record<string, any>,
     formatting?: CompositeFormatting
   ): string {
-    let result = template.replace(/{([^}]+)}/g, (match, fieldPath) => {
+    let result = template.replace(/{([^}]+)}/g, (_, fieldPath) => {
       const value = this.getNestedValue(data, fieldPath);
       
       if (value == null || value === '') {

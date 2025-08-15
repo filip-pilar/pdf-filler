@@ -136,17 +136,6 @@ export function saveAppData(data: {
   pdfMetadata?: StoredPdfMetadata;
 }): void {
   try {
-    const appData: StoredAppData = {
-      version: APP_VERSION,
-      unifiedFields: data.fields.map(field => ({
-        ...field,
-        sampleValue: typeof field.sampleValue === 'boolean' ? field.sampleValue : undefined,
-      })),
-      gridSettings: data.gridSettings,
-      pdfMetadata: data.pdfMetadata,
-      lastSaved: new Date().toISOString(),
-    };
-    
     // Save individual components
     saveFieldsToStorage(data.fields);
     saveGridSettings(data.gridSettings);

@@ -1,6 +1,7 @@
-import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Inbox } from 'lucide-react';
+import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Inbox, Undo2, Redo2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
+import { useUndoRedoContext } from '@/contexts/UndoRedoContext';
 import { Button } from '@/components/ui/button';
 import { ImportModal } from '@/components/ImportModal/ImportModal';
 import { ExportDialog } from '@/components/ExportModal/ExportDialog';
@@ -27,7 +28,8 @@ import {
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonImportRef = useRef<HTMLInputElement>(null);
-  const { clearAll, clearStorage, loadFromStorage, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields, queuedFields, isRightSidebarOpen, setRightSidebarOpen } = useFieldStore();
+  const { clearAll, clearStorage, loadFromStorage, unifiedFields, setPdfFile, setPdfUrl, pdfFile, queuedFields, isRightSidebarOpen, setRightSidebarOpen } = useFieldStore();
+  const { undo, redo, canUndo, canRedo } = useUndoRedoContext();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showNewProjectAlert, setShowNewProjectAlert] = useState(false);
@@ -35,7 +37,7 @@ export function Toolbar() {
   const [showClearStorageAlert, setShowClearStorageAlert] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-  const activeFieldsCount = useUnifiedFields ? unifiedFields.length : fields.length;
+  const activeFieldsCount = unifiedFields.length;
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -147,6 +149,30 @@ export function Toolbar() {
             Upload PDF
           </Button>
           
+          <div className="w-px h-6 bg-border mx-1" />
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={!canUndo()}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={!canRedo()}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+          
+          <div className="w-px h-6 bg-border mx-1" />
+          
           <Button
             variant="outline"
             size="sm"
@@ -190,12 +216,23 @@ export function Toolbar() {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="relative">
                 <Save className="h-4 w-4" />
                 Storage
+                {hasStoredData() && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" title="Data available in storage" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={loadFromStorage}
+                disabled={!hasStoredData()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Restore from Storage
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleExportBackup}>
                 <Download className="h-4 w-4 mr-2" />
                 Export Backup

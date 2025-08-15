@@ -3,17 +3,18 @@ import { useFieldStore } from '@/store/fieldStore';
 
 export function useKeyboardShortcuts() {
   const { 
-    selectedFieldKey, 
-    fields, 
-    updateField, 
-    deleteField, 
-    duplicateField,
-    selectField 
+    selectedUnifiedFieldId, 
+    unifiedFields, 
+    updateUnifiedField, 
+    deleteUnifiedField, 
+    duplicateUnifiedField,
+    selectUnifiedField,
+    addUnifiedField
   } = useFieldStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const selectedField = fields.find(f => f.key === selectedFieldKey);
+      const selectedField = unifiedFields.find(f => f.id === selectedUnifiedFieldId);
       
       // Don't trigger shortcuts when typing in inputs
       if (e.target instanceof HTMLInputElement || 
@@ -23,17 +24,17 @@ export function useKeyboardShortcuts() {
 
       // Delete selected field (only Delete key, not Backspace to avoid accidental deletion)
       if (e.key === 'Delete') {
-        if (selectedFieldKey) {
+        if (selectedUnifiedFieldId) {
           e.preventDefault();
-          deleteField(selectedFieldKey);
+          deleteUnifiedField(selectedUnifiedFieldId);
         }
       }
 
       // Duplicate field (Ctrl/Cmd + D)
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        if (selectedFieldKey) {
+        if (selectedUnifiedFieldId) {
           e.preventDefault();
-          duplicateField(selectedFieldKey);
+          duplicateUnifiedField(selectedUnifiedFieldId);
         }
       }
 
@@ -43,6 +44,7 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           localStorage.setItem('copiedField', JSON.stringify({
             ...selectedField,
+            id: undefined, // Remove id so it gets a new one when pasted
             key: undefined // Remove key so it gets a new one when pasted
           }));
         }
@@ -55,7 +57,7 @@ export function useKeyboardShortcuts() {
         if (copiedField) {
           try {
             const field = JSON.parse(copiedField);
-            useFieldStore.getState().addField({
+            addUnifiedField({
               ...field,
               position: {
                 x: field.position.x + 20,
@@ -69,8 +71,8 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // Move selected field with arrow keys
-      if (selectedField && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Move selected field with arrow keys (skip if field is locked)
+      if (selectedField && !selectedField.locked && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         const moveAmount = e.altKey ? 10 : 1;
         let moved = false;
         const newPosition = { ...selectedField.position };
@@ -96,38 +98,43 @@ export function useKeyboardShortcuts() {
 
         if (moved) {
           e.preventDefault();
-          updateField(selectedField.key, { position: newPosition });
+          updateUnifiedField(selectedField.id, { position: newPosition });
         }
       }
 
-      // Resize selected field with Shift + Arrow keys
-      if (selectedField && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Resize selected field with Shift + Arrow keys (skip if field is locked)
+      if (selectedField && !selectedField.locked && e.shiftKey && !e.ctrlKey && !e.metaKey) {
         const resizeAmount = e.altKey ? 10 : 2;
         let resized = false;
         const newSize = { ...selectedField.size };
 
         switch (e.key) {
           case 'ArrowUp':
-            newSize.height = Math.max(10, newSize.height - resizeAmount);
+            newSize.height = Math.max(10, (newSize.height || 32) - resizeAmount);
             resized = true;
             break;
           case 'ArrowDown':
-            newSize.height = newSize.height + resizeAmount;
+            newSize.height = (newSize.height || 32) + resizeAmount;
             resized = true;
             break;
           case 'ArrowLeft':
-            newSize.width = Math.max(20, newSize.width - resizeAmount);
+            newSize.width = Math.max(20, (newSize.width || 120) - resizeAmount);
             resized = true;
             break;
           case 'ArrowRight':
-            newSize.width = newSize.width + resizeAmount;
+            newSize.width = (newSize.width || 120) + resizeAmount;
             resized = true;
             break;
         }
 
         if (resized) {
           e.preventDefault();
-          updateField(selectedField.key, { size: newSize });
+          updateUnifiedField(selectedField.id, { 
+            size: { 
+              width: newSize.width || 120, 
+              height: newSize.height || 32 
+            } 
+          });
         }
       }
 
@@ -141,18 +148,18 @@ export function useKeyboardShortcuts() {
 
       // Escape to deselect
       if (e.key === 'Escape') {
-        selectField(null);
+        selectUnifiedField(null);
       }
 
       // Tab through fields (simplified without page context)
       if (e.key === 'Tab') {
-        if (fields.length > 0) {
+        if (unifiedFields.length > 0) {
           e.preventDefault();
-          const currentIndex = fields.findIndex(f => f.key === selectedFieldKey);
+          const currentIndex = unifiedFields.findIndex(f => f.id === selectedUnifiedFieldId);
           const nextIndex = e.shiftKey 
-            ? (currentIndex - 1 + fields.length) % fields.length
-            : (currentIndex + 1) % fields.length;
-          selectField(fields[nextIndex].key);
+            ? (currentIndex - 1 + unifiedFields.length) % unifiedFields.length
+            : (currentIndex + 1) % unifiedFields.length;
+          selectUnifiedField(unifiedFields[nextIndex].id);
         }
       }
     };
@@ -160,11 +167,12 @@ export function useKeyboardShortcuts() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    selectedFieldKey, 
-    fields, 
-    updateField, 
-    deleteField, 
-    duplicateField, 
-    selectField
+    selectedUnifiedFieldId, 
+    unifiedFields, 
+    updateUnifiedField, 
+    deleteUnifiedField, 
+    duplicateUnifiedField, 
+    selectUnifiedField,
+    addUnifiedField
   ]);
 }

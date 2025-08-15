@@ -1,13 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import type { Field, FieldType } from '../types/field.types';
-// Legacy types - temporarily defined here
-type LogicField = any;
-type FieldOption = any;
-type FieldAction = any;
-type BooleanField = any;
-type BooleanFieldAction = any;
-import type { UnifiedField, FieldMigrationResult } from '../types/unifiedField.types';
+import type { UnifiedField } from '../types/unifiedField.types';
 import { TemplateEngine } from '../utils/templateEngine';
 import { 
   saveFieldsToStorage, 
@@ -15,7 +8,6 @@ import {
   savePdfMetadata,
   loadFieldsFromStorage,
   loadGridSettings,
-  loadPdfMetadata,
   clearStoredData,
   saveQueuedFields,
   loadQueuedFields,
@@ -26,23 +18,9 @@ import {
 export type GridSize = 10 | 25 | 50 | 100;
 
 interface FieldState {
-  // Feature flag for unified fields
-  useUnifiedFields: boolean;
-  
-  // Unified fields (new system)
+  // Unified fields
   unifiedFields: UnifiedField[];
   selectedUnifiedFieldId: string | null;
-  
-  // Regular fields (legacy)
-  fields: Field[];
-  selectedFieldKey: string | null;
-  isDragging: boolean;
-  
-  // Logic fields (legacy)
-  logicFields: LogicField[];
-  
-  // Boolean fields (legacy)
-  booleanFields: BooleanField[];
   
   // PDF data
   pdfFile: File | null;
@@ -66,63 +44,7 @@ interface FieldState {
   moveFromQueueToCanvas: (fieldId: string, position: { x: number; y: number }) => void;
   setRightSidebarOpen: (open: boolean) => void;
   
-  // Regular field operations
-  addField: (field: Partial<Field>) => Field;
-  updateField: (key: string, updates: Partial<Field>) => void;
-  deleteField: (key: string) => void;
-  selectField: (key: string | null) => void;
-  deselectField: () => void;
-  setFields: (fields: Field[]) => void;
-  setDragging: (isDragging: boolean) => void;
-  duplicateField: (key: string) => void;
-  clearFields: () => void;
-  
-  // Logic field operations
-  addLogicField: (field: LogicField) => LogicField;
-  updateLogicField: (key: string, updates: Partial<LogicField>) => void;
-  deleteLogicField: (key: string) => void;
-  
-  // Boolean field operations
-  addBooleanField: (field: BooleanField) => BooleanField;
-  updateBooleanField: (key: string, updates: Partial<BooleanField>) => void;
-  deleteBooleanField: (key: string) => void;
-  
-  // Boolean action operations
-  addBooleanAction: (fieldKey: string, isTrue: boolean, action: Omit<BooleanFieldAction, 'id'>) => void;
-  updateBooleanAction: (fieldKey: string, isTrue: boolean, actionId: string, updates: Partial<BooleanFieldAction>) => void;
-  deleteBooleanAction: (fieldKey: string, isTrue: boolean, actionId: string) => void;
-  duplicateBooleanAction: (fieldKey: string, isTrue: boolean, actionId: string) => void;
-  updateBooleanActionPosition: (fieldKey: string, isTrue: boolean, actionId: string, position: { x: number; y: number; page: number }) => void;
-  
-  // Option operations
-  addOption: (fieldKey: string, option: FieldOption) => void;
-  updateOption: (fieldKey: string, optionValue: string, updates: Partial<FieldOption>) => void;
-  deleteOption: (fieldKey: string, optionValue: string) => void;
-  
-  // Action operations
-  addAction: (fieldKey: string, optionValue: string, action: Omit<FieldAction, 'id'>) => void;
-  updateAction: (fieldKey: string, optionValue: string, actionId: string, updates: Partial<FieldAction>) => void;
-  deleteAction: (fieldKey: string, optionValue: string, actionId: string) => void;
-  clearActionsForOption: (fieldKey: string, optionValue: string) => void;
-  duplicateAction: (fieldKey: string, optionValue: string, actionId: string) => void;
-  updateActionPosition: (fieldKey: string, optionValue: string, actionId: string, position: { x: number; y: number; page: number }) => void;
-  
-  // Query operations
-  getLogicFieldByKey: (key: string) => LogicField | undefined;
-  getAllActionsForPage: (pageNumber: number) => Array<{
-    action: FieldAction;
-    option: FieldOption;
-    logicField: LogicField;
-  }>;
-  getAllBooleanActionsForPage: (pageNumber: number) => Array<{
-    action: BooleanFieldAction;
-    isTrue: boolean;
-    booleanField: BooleanField;
-  }>;
-  validateAction: (action: FieldAction, targetFieldType?: string) => boolean;
-  
   // Unified field operations
-  setUseUnifiedFields: (use: boolean) => void;
   addUnifiedField: (field: Partial<UnifiedField>) => UnifiedField;
   updateUnifiedField: (id: string, updates: Partial<UnifiedField>) => void;
   deleteUnifiedField: (id: string) => void;
@@ -139,12 +61,6 @@ interface FieldState {
   toggleUnifiedFieldLock: (id: string) => void;
   lockUnifiedField: (id: string) => void;
   unlockUnifiedField: (id: string) => void;
-  
-  // Migration operations
-  convertFieldToUnified: (field: Field) => UnifiedField;
-  convertLogicFieldToUnified: (logicField: LogicField) => UnifiedField[];
-  convertBooleanFieldToUnified: (booleanField: BooleanField) => UnifiedField[];
-  migrateAllToUnified: () => FieldMigrationResult;
   
   // Composite field operations
   createCompositeField: (template: string, position: { x: number; y: number }, page: number) => UnifiedField;
@@ -174,35 +90,16 @@ interface FieldState {
   toggleGrid: () => void;
 }
 
-const generateFieldKey = (type: string, existingFields: Field[]): string => {
-  // Extract numbers from existing keys for this type
-  const sameTypeKeys = existingFields
-    .filter(f => f.type === type)
-    .map(f => {
-      // Use \\d in template literal to get \d in regex
-      const match = f.key.match(new RegExp(`^${type}_(\\d+)$`));
-      return match ? parseInt(match[1]) : 0;
-    })
-    .filter(num => num > 0); // Only consider valid numbers
-  
-  // Find the next available number
-  const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
-  const nextNumber = maxNumber + 1;
-  
-  return `${type}_${nextNumber}`;
-};
-
 // Generate simple field IDs for unified fields
 const generateUnifiedFieldKey = (type: string, existingFields: UnifiedField[]): string => {
   // Extract numbers from existing keys for this type
   const sameTypeKeys = existingFields
     .filter(f => f.type === type)
     .map(f => {
-      // Use \\d in template literal to get \d in regex
       const match = f.key.match(new RegExp(`^${type}_(\\d+)$`));
       return match ? parseInt(match[1]) : 0;
     })
-    .filter(num => num > 0); // Only consider valid numbers
+    .filter(num => num > 0);
   
   // Find the next available number
   const maxNumber = sameTypeKeys.length > 0 ? Math.max(...sameTypeKeys) : 0;
@@ -211,37 +108,21 @@ const generateUnifiedFieldKey = (type: string, existingFields: UnifiedField[]): 
   return `${type}_${nextNumber}`;
 };
 
-// Get default field size based on type
-const getDefaultFieldSize = (type: FieldType) => {
-  switch (type) {
-    case 'text': return { width: 120, height: 32 };
-    case 'image': return { width: 100, height: 100 };
-    case 'signature': return { width: 200, height: 60 };
+// Get default size for field type
+const getDefaultFieldSize = (type: string): { width: number; height: number } => {
+  switch(type) {
+    case 'image': return { width: 150, height: 150 };
+    case 'signature': return { width: 200, height: 80 };
     case 'checkbox': return { width: 20, height: 20 };
     default: return { width: 120, height: 32 };
   }
 };
 
-
 export const useFieldStore = create<FieldState>()(
   subscribeWithSelector((set, get) => ({
-  // Feature flag
-  useUnifiedFields: true, // Migration enabled!
-  
-  // Unified fields (new system)
+  // Unified fields
   unifiedFields: [],
   selectedUnifiedFieldId: null,
-  
-  // Regular fields (legacy)
-  fields: [],
-  selectedFieldKey: null,
-  isDragging: false,
-  
-  // Logic fields (legacy)
-  logicFields: [],
-  
-  // Boolean fields (legacy)
-  booleanFields: [],
   
   // PDF data
   pdfFile: null,
@@ -258,499 +139,41 @@ export const useFieldStore = create<FieldState>()(
   queuedFields: [],
   isRightSidebarOpen: false,
   
-  addField: (fieldData) => {
-    const existingFields = get().fields;
-    const fieldType = fieldData.type || 'text';
-    const generatedKey = generateFieldKey(fieldType, existingFields);
-    const key = fieldData.key || generatedKey;
-    
-    // Set default sample values based on field type
-    const defaultSampleValue = (() => {
-      switch(fieldType) {
-        case 'text': return 'Your text here';
-        case 'checkbox': return false;
-        case 'image': return null;
-        case 'signature': return null;
-        default: return 'Your text here';
-      }
-    })();
-    
-    const newField: Field = {
-      type: fieldType,
-      name: generatedKey,
-      page: 1,
-      position: { x: 0, y: 0 },
-      size: { width: 200, height: 30 },
-      properties: {
-        defaultValue: defaultSampleValue
-      },
-      sampleValue: fieldData.sampleValue ?? defaultSampleValue,
-      ...fieldData,
-      key: key,
-    };
+  // Queue operations
+  addToQueue: (fields) => {
     set((state) => ({
-      fields: [...state.fields, newField],
-      selectedFieldKey: newField.key,
-    }));
-    return newField;
-  },
-  
-  updateField: (key, updates) => {
-    set((state) => ({
-      fields: state.fields.map((field) =>
-        field.key === key ? { ...field, ...updates } : field
-      ),
+      queuedFields: [...state.queuedFields, ...fields],
+      isRightSidebarOpen: true // Auto-open when fields are added
     }));
   },
   
-  deleteField: (key) => {
+  removeFromQueue: (fieldId) => {
     set((state) => ({
-      fields: state.fields.filter((field) => field.key !== key),
-      selectedFieldKey: state.selectedFieldKey === key ? null : state.selectedFieldKey,
+      queuedFields: state.queuedFields.filter(f => f.id !== fieldId)
     }));
   },
   
-  selectField: (key) => {
-    set({ selectedFieldKey: key });
+  clearQueue: () => {
+    set({ queuedFields: [] });
   },
   
-  deselectField: () => {
-    set({ selectedFieldKey: null });
-  },
-  
-  setFields: (fields) => {
-    set({ fields });
-  },
-  
-  setDragging: (isDragging) => {
-    set({ isDragging });
-  },
-  
-  duplicateField: (key) => {
-    const field = get().fields.find((f) => f.key === key);
-    if (field) {
-      const existingFields = get().fields;
-      const newKey = generateFieldKey(field.type, existingFields);
-      const newField: Field = {
-        ...field,
-        position: {
-          x: field.position.x + 20,
-          y: field.position.y + 20,
-        },
-        name: newKey,
-        key: newKey,
-        displayName: field.displayName ? `${field.displayName} (Copy)` : undefined,
-      };
-      set((state) => ({
-        fields: [...state.fields, newField],
-        selectedFieldKey: newField.key,
-      }));
-    }
-  },
-  
-  clearFields: () => {
-    set({ fields: [], selectedFieldKey: null });
-  },
-
-  // Logic field operations
-  addLogicField: (field) => {
-    set((state) => ({
-      logicFields: [...state.logicFields, field]
-    }));
-    return field;
-  },
-  
-  updateLogicField: (key, updates) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === key ? { ...f, ...updates } : f
-    )
-  })),
-  
-  deleteLogicField: (key) => set((state) => ({
-    logicFields: state.logicFields.filter(f => f.key !== key)
-  })),
-  
-  
-  // Option operations
-  addOption: (fieldKey, option) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? { ...f, options: [...f.options, option] }
-        : f
-    )
-  })),
-  
-  updateOption: (fieldKey, optionValue, updates) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? {
-            ...f, 
-            options: f.options.map((o: any) => 
-              o.key === optionValue ? { ...o, ...updates } : o
-            )
-          }
-        : f
-    )
-  })),
-  
-  deleteOption: (fieldKey, optionValue) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? { ...f, options: f.options.filter((o: any) => o.key !== optionValue) }
-        : f
-    )
-  })),
-  
-  // Action operations
-  addAction: (fieldKey, optionValue, action) => {
-    const newAction: FieldAction = {
-      ...action,
-      id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    };
-    
-    set((state) => ({
-      logicFields: state.logicFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              options: f.options.map((o: any) => 
-                o.key === optionValue 
-                  ? { ...o, actions: [...o.actions, newAction] }
-                  : o
-              )
-            }
-          : f
-      )
-    }));
-  },
-  
-  updateAction: (fieldKey, optionValue, actionId, updates) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? {
-            ...f,
-            options: f.options.map((o: any) => 
-              o.key === optionValue 
-                ? {
-                    ...o,
-                    actions: o.actions.map((a: any) => 
-                      a.id === actionId ? { ...a, ...updates } : a
-                    )
-                  }
-                : o
-            )
-          }
-        : f
-    )
-  })),
-  
-  deleteAction: (fieldKey, optionValue, actionId) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? {
-            ...f,
-            options: f.options.map((o: any) => 
-              o.key === optionValue 
-                ? { ...o, actions: o.actions.filter((a: any) => a.id !== actionId) }
-                : o
-            )
-          }
-        : f
-    )
-  })),
-  
-  clearActionsForOption: (fieldKey, optionValue) => set((state) => ({
-    logicFields: state.logicFields.map(f => 
-      f.key === fieldKey 
-        ? {
-            ...f,
-            options: f.options.map((o: any) => 
-              o.key === optionValue 
-                ? { ...o, actions: [] }
-                : o
-            )
-          }
-        : f
-    )
-  })),
-  
-  duplicateAction: (fieldKey, optionValue, actionId) => {
-    const state = get();
-    const field = state.logicFields.find(f => f.key === fieldKey);
+  moveFromQueueToCanvas: (fieldId, position) => {
+    const field = get().queuedFields.find(f => f.id === fieldId);
     if (!field) return;
     
-    const option = field.options.find((o: any) => o.key === optionValue);
-    if (!option) return;
+    // Add field to canvas with the new position
+    const updatedField = { ...field, position };
+    get().addUnifiedField(updatedField);
     
-    const action = option.actions.find((a: any) => a.id === actionId);
-    if (!action) return;
-    
-    const newAction: FieldAction = {
-      ...action,
-      id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      position: {
-        ...action.position,
-        x: action.position.x + 10,
-        y: action.position.y + 10
-      }
-    };
-    
-    set((state) => ({
-      logicFields: state.logicFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              options: f.options.map((o: any) => 
-                o.key === optionValue 
-                  ? { ...o, actions: [...o.actions, newAction] }
-                  : o
-              )
-            }
-          : f
-      )
-    }));
+    // Remove from queue
+    get().removeFromQueue(fieldId);
   },
   
-  updateActionPosition: (fieldKey, optionValue, actionId, position) => {
-    set((state) => ({
-      logicFields: state.logicFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              options: f.options.map((o: any) => 
-                o.key === optionValue 
-                  ? {
-                      ...o,
-                      actions: o.actions.map((a: any) => 
-                        a.id === actionId 
-                          ? { ...a, position }
-                          : a
-                      )
-                    }
-                  : o
-              )
-            }
-          : f
-      )
-    }));
-  },
-  
-  // Query operations
-  getLogicFieldByKey: (key) => {
-    return get().logicFields.find(f => f.key === key);
-  },
-  
-  getAllActionsForPage: (pageNumber) => {
-    const results: Array<{
-      action: FieldAction;
-      option: FieldOption;
-      logicField: LogicField;
-    }> = [];
-    
-    const state = get();
-    state.logicFields.forEach(field => {
-      field.options.forEach((option: any) => {
-        option.actions.forEach((action: any) => {
-          if (action.position.page === pageNumber) {
-            results.push({
-              action,
-              option,
-              logicField: field
-            });
-          }
-        });
-      });
-    });
-    
-    return results;
-  },
-  
-  getAllBooleanActionsForPage: (pageNumber) => {
-    const results: Array<{
-      action: BooleanFieldAction;
-      isTrue: boolean;
-      booleanField: BooleanField;
-    }> = [];
-    
-    const state = get();
-    state.booleanFields.forEach(field => {
-      // Add TRUE actions
-      field.trueActions.forEach((action: any) => {
-        if (action.position.page === pageNumber) {
-          results.push({
-            action,
-            isTrue: true,
-            booleanField: field
-          });
-        }
-      });
-      // Add FALSE actions
-      field.falseActions.forEach((action: any) => {
-        if (action.position.page === pageNumber) {
-          results.push({
-            action,
-            isTrue: false,
-            booleanField: field
-          });
-        }
-      });
-    });
-    
-    return results;
-  },
-  
-  validateAction: (action, targetFieldType) => {
-    // Basic validation for action types
-    if (action.type === 'checkmark') {
-      return true; // Checkmarks can go anywhere
-    }
-    
-    if (action.type === 'fillLabel' || action.type === 'fillCustom') {
-      // These need a text field target
-      return !targetFieldType || targetFieldType === 'text';
-    }
-    
-    return true;
-  },
-  
-  // Clear all
-  clearAll: () => {
-    set({ 
-      fields: [], 
-      selectedFieldKey: null,
-      logicFields: [],
-      booleanFields: [],
-      pdfFile: null,
-      pdfUrl: null
-    });
-  },
-  
-  // Boolean field operations implementation
-  addBooleanField: (field: BooleanField) => {
-    set((state) => ({
-      booleanFields: [...state.booleanFields, field]
-    }));
-    return field;
-  },
-
-  updateBooleanField: (key: string, updates: Partial<BooleanField>) => {
-    set((state) => ({
-      booleanFields: state.booleanFields.map((field) =>
-        field.key === key ? { ...field, ...updates } : field
-      )
-    }));
-  },
-
-  deleteBooleanField: (key: string) => {
-    set((state) => ({
-      booleanFields: state.booleanFields.filter((field) => field.key !== key)
-    }));
-  },
-  
-  // Boolean action operations
-  addBooleanAction: (fieldKey, isTrue, action) => {
-    const newAction: BooleanFieldAction = {
-      ...action,
-      id: `bool_act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    };
-    
-    set((state) => ({
-      booleanFields: state.booleanFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: [
-                ...f[isTrue ? 'trueActions' : 'falseActions'],
-                newAction
-              ]
-            }
-          : f
-      )
-    }));
-  },
-  
-  updateBooleanAction: (fieldKey, isTrue, actionId, updates) => {
-    set((state) => ({
-      booleanFields: state.booleanFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map((a: any) => 
-                a.id === actionId ? { ...a, ...updates } : a
-              )
-            }
-          : f
-      )
-    }));
-  },
-  
-  deleteBooleanAction: (fieldKey, isTrue, actionId) => {
-    set((state) => ({
-      booleanFields: state.booleanFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].filter((a: any) => 
-                a.id !== actionId
-              )
-            }
-          : f
-      )
-    }));
-  },
-  
-  duplicateBooleanAction: (fieldKey, isTrue, actionId) => {
-    const state = get();
-    const field = state.booleanFields.find(f => f.key === fieldKey);
-    if (!field) return;
-    
-    const actions = isTrue ? field.trueActions : field.falseActions;
-    const action = actions.find((a: any) => a.id === actionId);
-    if (!action) return;
-    
-    const newAction: BooleanFieldAction = {
-      ...action,
-      id: `bool_act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      position: {
-        ...action.position,
-        x: action.position.x + 10,
-        y: action.position.y + 10
-      }
-    };
-    
-    set((state) => ({
-      booleanFields: state.booleanFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: [
-                ...f[isTrue ? 'trueActions' : 'falseActions'],
-                newAction
-              ]
-            }
-          : f
-      )
-    }));
-  },
-  
-  updateBooleanActionPosition: (fieldKey, isTrue, actionId, position) => {
-    set((state) => ({
-      booleanFields: state.booleanFields.map(f => 
-        f.key === fieldKey 
-          ? {
-              ...f,
-              [isTrue ? 'trueActions' : 'falseActions']: f[isTrue ? 'trueActions' : 'falseActions'].map((a: any) => 
-                a.id === actionId ? { ...a, position } : a
-              )
-            }
-          : f
-      )
-    }));
+  setRightSidebarOpen: (open) => {
+    set({ isRightSidebarOpen: open });
   },
   
   // Unified field operations
-  setUseUnifiedFields: (use) => set({ useUnifiedFields: use }),
-  
   addUnifiedField: (fieldData) => {
     const id = `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const fieldType = fieldData.type || 'text';
@@ -798,171 +221,75 @@ export const useFieldStore = create<FieldState>()(
     const newField: UnifiedField = {
       // 1. First apply user data (except properties)
       ...fieldDataWithoutProperties,
-      // 2. Then set required fields with proper defaults
+      
+      // 2. Then apply our required fields (these override anything from user)
       id,
-      key: existingFieldWithKey ? `${finalKey}_${Date.now()}` : finalKey,
       type: fieldType,
-      variant: fieldData.variant || 'single',
-      page: fieldData.page || 1,
-      position: fieldData.position || { x: 100, y: 100 },
-      size: fieldData.size || (fieldType === 'logic' ? { width: 120, height: 32 } : getDefaultFieldSize(fieldType)),
-      enabled: fieldData.enabled !== false, // Default true unless explicitly false
-      structure: fieldData.structure || 'simple',
-      placementCount: fieldData.placementCount || 1,
-      positionVersion: fieldData.positionVersion || 'top-edge',
-      sampleValue: defaultSampleValue,
-      // 3. Deep merge properties - defaults first, then user overrides
+      key: finalKey,
+      
+      // 3. Apply defaults for missing values
+      page: fieldData.page ?? 1,
+      position: fieldData.position ?? { x: 100, y: 100 },
+      size: fieldData.size ?? getDefaultFieldSize(fieldType),
+      variant: fieldData.variant ?? 'single',
+      structure: fieldData.structure ?? 'simple',
+      enabled: fieldData.enabled ?? true,
+      placementCount: fieldData.placementCount ?? 1,
+      locked: fieldData.locked ?? false,
+      
+      // 4. Merge properties: user properties override defaults
       properties: {
         ...defaultProperties,
-        ...userProperties
-      }
+        ...userProperties,
+      },
+      
+      // 5. Set sample value last (may reference the type)
+      sampleValue: defaultSampleValue,
     };
     
     set((state) => ({
-      unifiedFields: [...state.unifiedFields, newField]
+      unifiedFields: [...state.unifiedFields, newField],
+      selectedUnifiedFieldId: newField.id,
     }));
+    
     return newField;
   },
   
   updateUnifiedField: (id, updates) => {
     set((state) => ({
-      unifiedFields: state.unifiedFields.map(f => {
-        if (f.id !== id) return f;
-        
-        // Handle properties updates specially - deep merge
-        if (updates.properties) {
-          const { properties: updateProperties, ...otherUpdates } = updates;
-          return {
-            ...f,
-            ...otherUpdates,
-            properties: {
-              ...f.properties,
-              ...updateProperties
-            }
-          };
-        }
-        
-        // No properties update, simple merge
-        return { ...f, ...updates };
-      })
+      unifiedFields: state.unifiedFields.map((field) =>
+        field.id === id ? { ...field, ...updates } : field
+      ),
     }));
   },
   
   deleteUnifiedField: (id) => {
     set((state) => ({
-      unifiedFields: state.unifiedFields.filter(f => f.id !== id),
-      selectedUnifiedFieldId: state.selectedUnifiedFieldId === id ? null : state.selectedUnifiedFieldId
+      unifiedFields: state.unifiedFields.filter((field) => field.id !== id),
+      selectedUnifiedFieldId: state.selectedUnifiedFieldId === id ? null : state.selectedUnifiedFieldId,
     }));
   },
   
-  toggleUnifiedFieldLock: (id) => {
-    set((state) => ({
-      unifiedFields: state.unifiedFields.map(f => 
-        f.id === id ? { ...f, locked: !f.locked } : f
-      )
-    }));
-  },
-  
-  lockUnifiedField: (id) => {
-    set((state) => ({
-      unifiedFields: state.unifiedFields.map(f => 
-        f.id === id ? { ...f, locked: true } : f
-      )
-    }));
-  },
-  
-  unlockUnifiedField: (id) => {
-    set((state) => ({
-      unifiedFields: state.unifiedFields.map(f => 
-        f.id === id ? { ...f, locked: false } : f
-      )
-    }));
-  },
-  
-  setUnifiedFields: (fields) => {
-    // Migrate legacy fields to top-edge positioning
-    const migratedFields = fields.map(field => {
-      if (!field.positionVersion) {
-        // Legacy field - convert from bottom-edge to top-edge
-        const fieldHeight = field.size?.height || 30;
-        return {
-          ...field,
-          position: {
-            ...field.position,
-            y: field.position.y + fieldHeight // Convert to top edge
-          },
-          positionVersion: 'top-edge' as const
-        };
-      }
-      return field;
-    });
-    set({ unifiedFields: migratedFields });
-  },
+  setUnifiedFields: (fields) => set({ unifiedFields: fields }),
   
   clearUnifiedFields: () => set({ unifiedFields: [], selectedUnifiedFieldId: null }),
   
-  // Queue operations
-  addToQueue: (fields) => {
-    set((state) => ({
-      queuedFields: [...state.queuedFields, ...fields],
-      isRightSidebarOpen: true // Auto-open sidebar when fields are added
-    }));
-  },
-  
-  removeFromQueue: (fieldId) => {
-    set((state) => ({
-      queuedFields: state.queuedFields.filter(f => f.id !== fieldId)
-    }));
-  },
-  
-  clearQueue: () => {
-    set({ queuedFields: [] });
-  },
-  
-  moveFromQueueToCanvas: (fieldId, position) => {
-    const state = get();
-    const queuedField = state.queuedFields.find(f => f.id === fieldId);
-    
-    if (queuedField) {
-      // Add field to canvas with the dropped position
-      const fieldToAdd = {
-        ...queuedField,
-        position,
-        enabled: true
-      };
-      
-      // Add to unified fields
-      set((state) => ({
-        unifiedFields: [...state.unifiedFields, fieldToAdd],
-        queuedFields: state.queuedFields.filter(f => f.id !== fieldId) // Remove from queue
-      }));
-    }
-  },
-  
-  setRightSidebarOpen: (open) => {
-    set({ isRightSidebarOpen: open });
-  },
-  
   duplicateUnifiedField: (id) => {
     const field = get().unifiedFields.find(f => f.id === id);
-    if (field) {
-      const existingFields = get().unifiedFields;
-      // Generate a new key based on the field type
-      const generatedKey = generateUnifiedFieldKey(field.type, existingFields);
-      const newField: UnifiedField = {
-        ...field,
-        id: `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        key: generatedKey,
-        position: {
-          x: field.position.x + 20,
-          y: field.position.y + 20
-        },
-        positionVersion: 'top-edge' // Ensure duplicated fields use top-edge
-      };
-      set((state) => ({
-        unifiedFields: [...state.unifiedFields, newField]
-      }));
-    }
+    if (!field) return;
+    
+    const newPosition = {
+      x: Math.min(field.position.x + 20, 500),
+      y: Math.min(field.position.y + 20, 700),
+    };
+    
+    const duplicatedField = {
+      ...field,
+      position: newPosition,
+      key: `${field.key}_copy`,
+    };
+    
+    get().addUnifiedField(duplicatedField);
   },
   
   getUnifiedFieldById: (id) => get().unifiedFields.find(f => f.id === id),
@@ -971,147 +298,24 @@ export const useFieldStore = create<FieldState>()(
   
   getUnifiedFieldsForPage: (page) => get().unifiedFields.filter(f => f.page === page),
   
-  selectUnifiedField: (id) => {
-    set({ selectedUnifiedFieldId: id });
-  },
+  selectUnifiedField: (id) => set({ selectedUnifiedFieldId: id }),
   
-  deselectUnifiedField: () => {
-    set({ selectedUnifiedFieldId: null });
-  },
+  deselectUnifiedField: () => set({ selectedUnifiedFieldId: null }),
   
-  // Migration operations
-  convertFieldToUnified: (field) => {
-    // Convert legacy bottom-edge Y to top-edge Y
-    const fieldHeight = field.size?.height || 30;
-    return {
-      id: `unified_${field.key}`,
-      key: field.key,
-      type: field.type,
-      variant: 'single',
-      page: field.page,
-      position: {
-        x: field.position.x,
-        y: field.position.y + fieldHeight // Convert to top edge
-      },
-      size: field.size,
-      enabled: true,
-      structure: 'simple',
-      placementCount: 1,
-      sampleValue: field.sampleValue,
-      source: field.source,
-      positionVersion: 'top-edge' as const
-    };
-  },
-  
-  convertLogicFieldToUnified: (logicField) => {
-    // Convert each option to a unified field
-    return logicField.options.map((option: any) => {
-      const firstAction = option.actions[0];
-      const actionHeight = firstAction?.size?.height || 30;
-      const position = firstAction?.position || { x: 100, y: 100 };
-      return {
-        id: `unified_${logicField.key}_${option.key}`,
-        key: `${logicField.key}_${option.key}`,
-        type: 'text' as const,
-        variant: 'single' as const,
-        page: firstAction?.position.page || logicField.page || 1,
-        position: {
-          x: position.x,
-          y: position.y + actionHeight // Convert to top edge
-        },
-        size: firstAction?.size,
-        enabled: true,
-        structure: 'simple' as const,
-        placementCount: 1,
-        sampleValue: option.label,
-        positionVersion: 'top-edge' as const
-      };
-    });
-  },
-  
-  convertBooleanFieldToUnified: (booleanField) => {
-    const fields: UnifiedField[] = [];
-    
-    // Convert true actions
-    if (booleanField.trueActions.length > 0) {
-      const firstAction = booleanField.trueActions[0];
-      const actionHeight = firstAction.size?.height || 30;
-      fields.push({
-        id: `unified_${booleanField.key}_true`,
-        key: `${booleanField.key}_true`,
-        type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
-        variant: 'single',
-        page: firstAction.position.page,
-        position: {
-          x: firstAction.position.x,
-          y: firstAction.position.y + actionHeight // Convert to top edge
-        },
-        size: firstAction.size,
-        enabled: true,
-        structure: 'simple',
-        placementCount: 1,
-        sampleValue: firstAction.type === 'checkmark' ? true : firstAction.customText,
-        positionVersion: 'top-edge' as const
-      });
+  // Lock operations
+  toggleUnifiedFieldLock: (id) => {
+    const field = get().unifiedFields.find(f => f.id === id);
+    if (field) {
+      get().updateUnifiedField(id, { locked: !field.locked });
     }
-    
-    // Convert false actions
-    if (booleanField.falseActions.length > 0) {
-      const firstAction = booleanField.falseActions[0];
-      const actionHeight = firstAction.size?.height || 30;
-      fields.push({
-        id: `unified_${booleanField.key}_false`,
-        key: `${booleanField.key}_false`,
-        type: firstAction.type === 'checkmark' ? 'checkbox' : 'text',
-        variant: 'single',
-        page: firstAction.position.page,
-        position: {
-          x: firstAction.position.x,
-          y: firstAction.position.y + actionHeight // Convert to top edge
-        },
-        size: firstAction.size,
-        enabled: true,
-        structure: 'simple',
-        placementCount: 1,
-        sampleValue: firstAction.type === 'checkmark' ? false : firstAction.customText,
-        positionVersion: 'top-edge' as const
-      });
-    }
-    
-    return fields;
   },
   
-  migrateAllToUnified: () => {
-    const state = get();
-    const unifiedFields: UnifiedField[] = [];
-    const warnings: string[] = [];
-    
-    // Convert regular fields
-    state.fields.forEach(field => {
-      unifiedFields.push(get().convertFieldToUnified(field));
-    });
-    
-    // Convert logic fields
-    state.logicFields.forEach(logicField => {
-      const converted = get().convertLogicFieldToUnified(logicField);
-      unifiedFields.push(...converted);
-      if (logicField.options.some((o: any) => o.actions.length > 1)) {
-        warnings.push(`Logic field "${logicField.key}" had multiple actions per option. Only first action was migrated.`);
-      }
-    });
-    
-    // Convert boolean fields
-    state.booleanFields.forEach(booleanField => {
-      const converted = get().convertBooleanFieldToUnified(booleanField);
-      unifiedFields.push(...converted);
-      if (booleanField.trueActions.length > 1 || booleanField.falseActions.length > 1) {
-        warnings.push(`Boolean field "${booleanField.key}" had multiple actions. Only first action was migrated.`);
-      }
-    });
-    
-    set({ unifiedFields, useUnifiedFields: true });
-    
-    return { fields: unifiedFields, warnings };
+  lockUnifiedField: (id) => {
+    get().updateUnifiedField(id, { locked: true });
+  },
+  
+  unlockUnifiedField: (id) => {
+    get().updateUnifiedField(id, { locked: false });
   },
   
   // Composite field operations
@@ -1147,84 +351,36 @@ export const useFieldStore = create<FieldState>()(
   
   validateCompositeTemplate: (template) => {
     const state = get();
-    const availableKeys = state.getAvailableFieldKeys();
+    const availableKeys = state.unifiedFields.map(f => f.key);
     const validation = TemplateEngine.validate(template, availableKeys);
-    
     return {
       isValid: validation.isValid,
       dependencies: validation.dependencies,
-      errors: validation.errors.map(e => e.message)
+      errors: validation.errors.map(e => e.message),
     };
   },
   
   getCompositeFieldDependencies: (id) => {
-    const field = get().getUnifiedFieldById(id);
+    const field = get().unifiedFields.find(f => f.id === id);
     return field?.dependencies || [];
   },
   
   getAvailableFieldKeys: () => {
-    const state = get();
-    const keys = new Set<string>();
-    
-    // Add unified field keys
-    state.unifiedFields.forEach(field => {
-      if (field.type !== 'composite-text') {
-        keys.add(field.key);
-        
-        // If the key contains dots (nested structure), also add parent paths
-        // e.g., for "personal_data.firstName", add "personal_data.firstName"
-        // This helps with template completion
-        if (field.key.includes('.')) {
-          const parts = field.key.split('.');
-          let path = '';
-          for (const part of parts) {
-            path = path ? `${path}.${part}` : part;
-            keys.add(path);
-          }
-        }
-      }
-    });
-    
-    // Add option mappings as nested keys
-    state.unifiedFields.forEach(field => {
-      if (field.variant === 'options' && field.optionMappings) {
-        field.optionMappings.forEach(option => {
-          keys.add(`${field.key}.${option.key}`);
-        });
-      }
-    });
-    
-    return Array.from(keys).sort();
+    return get().unifiedFields
+      .filter(f => f.type !== 'composite-text')
+      .map(f => f.key);
   },
-  
-  // PDF operations
-  setPdfFile: (file) => set({ pdfFile: file }),
-  setPdfUrl: (url) => set({ pdfUrl: url }),
-  clearPdf: () => set({ pdfFile: null, pdfUrl: null, totalPages: 0 }),
-  setCurrentPage: (page) => set({ currentPage: page }),
-  setTotalPages: (pages) => set({ totalPages: pages }),
-  
-  // Grid operations
-  setGridEnabled: (enabled) => set({ gridEnabled: enabled }),
-  setGridSize: (size) => set({ gridSize: size }),
-  setShowGrid: (show) => set({ showGrid: show }),
-  toggleGrid: () => set((state) => ({ 
-    gridEnabled: !state.gridEnabled, 
-    showGrid: !state.gridEnabled 
-  })),
   
   // Persistence operations
   loadFromStorage: () => {
     const fields = loadFieldsFromStorage();
     const gridSettings = loadGridSettings();
-    const pdfMetadata = loadPdfMetadata();
-    const queuedFields = loadQueuedFields();
     const rightSidebarOpen = loadRightSidebarState();
+    const queuedFields = loadQueuedFields();
     
-    if (fields && fields.length > 0) {
+    if (fields) {
       set({ unifiedFields: fields });
     }
-    
     if (gridSettings) {
       set({
         gridEnabled: gridSettings.gridEnabled,
@@ -1232,16 +388,12 @@ export const useFieldStore = create<FieldState>()(
         showGrid: gridSettings.showGrid,
       });
     }
-    
-    if (pdfMetadata) {
-      set({ totalPages: pdfMetadata.totalPages });
+    if (rightSidebarOpen !== null) {
+      set({ isRightSidebarOpen: rightSidebarOpen });
     }
-    
-    if (queuedFields && queuedFields.length > 0) {
+    if (queuedFields) {
       set({ queuedFields });
     }
-    
-    set({ isRightSidebarOpen: rightSidebarOpen });
   },
   
   clearStorage: () => {
@@ -1249,10 +401,51 @@ export const useFieldStore = create<FieldState>()(
     set({
       unifiedFields: [],
       selectedUnifiedFieldId: null,
-      fields: [],
-      selectedFieldKey: null,
-      logicFields: [],
-      booleanFields: [],
+      queuedFields: [],
+    });
+  },
+  
+  // PDF operations
+  setPdfFile: (file) => set({ pdfFile: file }),
+  
+  setPdfUrl: (url) => set({ pdfUrl: url }),
+  
+  clearPdf: () => set({ 
+    pdfFile: null, 
+    pdfUrl: null, 
+    currentPage: 1, 
+    totalPages: 0 
+  }),
+  
+  setCurrentPage: (page) => set({ currentPage: page }),
+  
+  setTotalPages: (pages) => set({ totalPages: pages }),
+  
+  // Grid operations
+  setGridEnabled: (enabled) => set({ gridEnabled: enabled }),
+  
+  setGridSize: (size) => set({ gridSize: size }),
+  
+  setShowGrid: (show) => set({ showGrid: show }),
+  
+  toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
+  
+  // Clear all
+  clearAll: () => {
+    // Clear URL to free memory
+    const currentUrl = get().pdfUrl;
+    if (currentUrl) {
+      URL.revokeObjectURL(currentUrl);
+    }
+    
+    set({
+      unifiedFields: [],
+      selectedUnifiedFieldId: null,
+      pdfFile: null,
+      pdfUrl: null,
+      currentPage: 1,
+      totalPages: 0,
+      queuedFields: [],
     });
   },
 })));
