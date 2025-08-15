@@ -21,7 +21,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 
-export function PdfEditor() {
+interface PdfEditorProps {
+  leftSidebarOpen?: boolean;
+}
+
+export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
   const [containerBounds, setContainerBounds] = useState({ left: 0, width: 0 });
@@ -55,7 +59,8 @@ export function PdfEditor() {
     unifiedFields,
     addUnifiedField,
     selectedUnifiedFieldId,
-    deselectUnifiedField
+    deselectUnifiedField,
+    isRightSidebarOpen
   } = useFieldStore();
   const { snapPosition } = useGridSnap();
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
@@ -124,12 +129,32 @@ export function PdfEditor() {
   const handleZoomOut = () => setScale(Math.max(scale - 0.25, 0.5));
   
   const handleFitToWidth = () => {
-    if (containerRef.current && pageSize.width) {
+    if (containerRef.current && naturalPageSize.width) {
       const containerWidth = containerRef.current.clientWidth - 64;
-      const newScale = containerWidth / pageSize.width;
+      const newScale = containerWidth / naturalPageSize.width;
       setScale(Math.min(newScale, 2));
     }
   };
+  
+  // Auto-adjust zoom when sidebars open/close
+  useEffect(() => {
+    // Small delay to let the layout settle after sidebar animation
+    const timer = setTimeout(() => {
+      if (containerRef.current && naturalPageSize.width) {
+        // Calculate available width
+        const containerWidth = containerRef.current.clientWidth - 64;
+        const currentWidth = naturalPageSize.width * scale;
+        
+        // Only auto-fit if content is wider than container or much narrower
+        if (currentWidth > containerWidth || currentWidth < containerWidth * 0.7) {
+          const newScale = containerWidth / naturalPageSize.width;
+          setScale(Math.min(Math.max(newScale, 0.5), 2));
+        }
+      }
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [isRightSidebarOpen, leftSidebarOpen]);
 
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {

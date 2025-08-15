@@ -1,4 +1,5 @@
-import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Inbox, Undo2, Redo2 } from 'lucide-react';
+import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Undo2, Redo2 } from 'lucide-react';
+import { ViewVerticalIcon } from '@radix-ui/react-icons';
 import { useRef, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 import { useUndoRedoContext } from '@/contexts/UndoRedoContext';
@@ -129,13 +130,8 @@ export function Toolbar() {
 
   return (
     <>
-      <div className="toolbar flex flex-1 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold">PDF Filler</h1>
-        </div>
-        
-        <div className="flex items-center gap-2">
+      <div className="toolbar flex flex-1 items-center">
+        <div className="flex flex-1 items-center justify-center gap-2">
           <GridControls />
           
           <div className="w-px h-6 bg-border mx-1" />
@@ -154,34 +150,12 @@ export function Toolbar() {
           <Button
             variant="outline"
             size="sm"
-            onClick={undo}
-            disabled={!canUndo()}
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={redo}
-            disabled={!canRedo()}
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <Redo2 className="h-4 w-4" />
-          </Button>
-          
-          <div className="w-px h-6 bg-border mx-1" />
-          
-          <Button
-            variant="outline"
-            size="sm"
             onClick={handleImportSchema}
             disabled={!pdfFile}
             title={!pdfFile ? "Upload a PDF first" : "Import schema from SQL, JSON, or TypeScript"}
           >
             <Database className="h-4 w-4" />
-            Import Schema
+            Import
           </Button>
           
           <Button
@@ -197,28 +171,15 @@ export function Toolbar() {
           
           <div className="w-px h-6 bg-border mx-1" />
           
-          <Button
-            variant={isRightSidebarOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setRightSidebarOpen(!isRightSidebarOpen)}
-            className="relative"
-          >
-            <Inbox className="h-4 w-4" />
-            Queue
-            {queuedFields.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                {queuedFields.length}
-              </span>
-            )}
-          </Button>
-          
-          <div className="w-px h-6 bg-border mx-1" />
-          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="relative">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="relative"
+                title="Storage options"
+              >
                 <Save className="h-4 w-4" />
-                Storage
                 {hasStoredData() && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" title="Data available in storage" />
                 )}
@@ -260,6 +221,46 @@ export function Toolbar() {
             New Project
           </Button>
           
+          <div className="w-px h-6 bg-border mx-1" />
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={!canUndo()}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={!canRedo()}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="flex items-center ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setRightSidebarOpen(!isRightSidebarOpen)}
+            className="relative h-7 w-7"
+            title={isRightSidebarOpen ? "Close Queue" : "Open Queue"}
+          >
+            <ViewVerticalIcon className="rotate-180" />
+            {queuedFields.length > 0 && !isRightSidebarOpen && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                {queuedFields.length}
+              </span>
+            )}
+          </Button>
+        </div>
+          
           <input
             ref={fileInputRef}
             type="file"
@@ -275,7 +276,6 @@ export function Toolbar() {
             onChange={handleImportBackup}
             className="hidden"
           />
-        </div>
       </div>
       
       <ImportModal 

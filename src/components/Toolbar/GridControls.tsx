@@ -30,8 +30,6 @@ export function GridControls() {
     }
   };
 
-  const currentLabel = enabled ? `${size}px Grid` : 'No Grid';
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -39,12 +37,14 @@ export function GridControls() {
           variant="outline"
           size="sm"
           className={cn(
-            "min-w-[100px]",
             enabled && "border-primary bg-primary/10 hover:bg-primary/20"
           )}
+          title={enabled ? `Grid: ${size}px` : 'Grid: Off'}
         >
-          <Grid3x3 className={cn("h-4 w-4 mr-2", enabled && "text-primary")} />
-          {currentLabel}
+          <Grid3x3 className={cn(
+            "h-4 w-4", 
+            enabled ? "text-primary" : "text-muted-foreground"
+          )} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">

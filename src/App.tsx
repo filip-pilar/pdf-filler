@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { Separator } from '@/components/ui/separator';
 import { Toolbar } from '@/components/Toolbar/Toolbar';
 import { StatusBar } from '@/components/StatusBar/StatusBar';
+import { cn } from '@/lib/utils';
 
 function App() {
   const { pdfFile, isRightSidebarOpen } = useFieldStore();
@@ -28,16 +29,16 @@ function App() {
   
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex h-screen w-full">
+      <div className="flex flex-col h-screen w-full">
         {/* Main Layout with Both Sidebars */}
         <SidebarProvider open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
-          {/* Left Sidebar */}
-          <FieldToolbox />
-          
-          {/* Main Content Area */}
-          <SidebarInset className={`flex-1 transition-all duration-300 ${isRightSidebarOpen ? 'mr-80' : ''}`}>
-            <div className="flex flex-1 flex-col h-full">
-              {/* Header */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Sidebar */}
+            <FieldToolbox />
+            
+            {/* Main Content Area */}
+            <SidebarInset className="flex-1 flex flex-col overflow-hidden">
+              {/* Header - Fixed */}
               <header className="flex h-16 shrink-0 items-center border-b bg-background">
                 <div className="flex w-full items-center gap-2 px-4">
                   <SidebarTrigger className="-ml-1" />
@@ -46,24 +47,31 @@ function App() {
                 </div>
               </header>
               
-              {/* Main PDF Editor Area */}
+              {/* Main PDF Editor Area - Scrollable */}
               <main className="flex-1 overflow-auto">
                 {pdfFile ? (
-                  <PdfEditor />
+                  <PdfEditor leftSidebarOpen={leftSidebarOpen} />
                 ) : (
                   <div className="w-full h-full p-4">
                     <DropzoneArea />
                   </div>
                 )}
               </main>
+            </SidebarInset>
+            
+            {/* Right Sidebar (Queue) - With smooth animation */}
+            <div 
+              className={cn(
+                "transition-all duration-200 ease-in-out overflow-hidden",
+                isRightSidebarOpen ? "w-80" : "w-0"
+              )}
+            >
+              <QueueSidebar />
             </div>
-          </SidebarInset>
-          
-          {/* Right Sidebar (Queue) - Outside of SidebarInset */}
-          <QueueSidebar />
+          </div>
         </SidebarProvider>
+        <StatusBar />
       </div>
-      <StatusBar />
     </DndProvider>
   );
 }

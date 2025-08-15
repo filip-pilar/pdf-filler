@@ -8,7 +8,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { QueuedFieldItem } from './QueuedFieldItem';
@@ -54,17 +59,11 @@ export function QueueSidebar() {
     }
   };
 
-  // Render as a fixed sidebar on the right, completely independent of zoom
+  // Render using shadcn Sidebar components for consistency
   return (
-    <aside 
-      className={cn(
-        "fixed right-0 top-0 h-screen bg-sidebar border-l transition-transform duration-300 z-40",
-        "flex flex-col w-80",
-        isRightSidebarOpen ? "translate-x-0" : "translate-x-full"
-      )}
-    >
-      {/* Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+    <Sidebar side="right" className="w-80 border-l" collapsible="none">
+      <SidebarHeader className="border-b">
+        <div className="flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Inbox className="h-4 w-4" />
           <h2 className="text-sm font-semibold">Import Queue</h2>
@@ -94,11 +93,12 @@ export function QueueSidebar() {
             <X className="h-3 w-3" />
           </Button>
         </div>
-      </div>
+        </div>
+      </SidebarHeader>
 
-      {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-4">
+      <SidebarContent>
+        <ScrollArea className="h-full">
+          <div className="p-4">
           {queuedFields.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -150,20 +150,20 @@ export function QueueSidebar() {
               })}
             </div>
           )}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </SidebarContent>
 
-      {/* Footer */}
       {queuedFields.length > 0 && (
-        <div className="border-t px-4 py-3">
+        <SidebarFooter className="border-t px-4 py-3">
           <p className="text-xs text-muted-foreground text-center">
             Drag fields from queue to PDF canvas
           </p>
           <p className="text-xs text-muted-foreground text-center mt-1">
             {queuedFields.length} field{queuedFields.length !== 1 ? 's' : ''} waiting
           </p>
-        </div>
+        </SidebarFooter>
       )}
-    </aside>
+    </Sidebar>
   );
 }
