@@ -208,6 +208,30 @@ The application automatically saves field configurations to browser localStorage
 - All data stays in browser localStorage
 - Export/import for team sharing and backups
 
+## Field Management Features
+
+### Field Locking
+Fields can be locked to prevent accidental dragging once they're positioned correctly:
+- **Lock/Unlock**: Toggle lock status via field configuration dialog or sidebar
+- **Visual Indicators**: Locked fields show with dashed border and reduced opacity
+- **Drag Prevention**: Locked fields cannot be repositioned via drag-and-drop
+- **Bulk Operations**: Lock/unlock multiple fields at once (future enhancement)
+
+### Import Queue System
+When importing fields, they now go to a queue sidebar instead of directly onto the PDF:
+- **Queue Sidebar**: Right sidebar shows imported fields organized by page
+- **Drag-to-Place**: Drag fields from queue to PDF canvas one at a time
+- **Auto-Removal**: Fields automatically removed from queue after placement
+- **Queue Management**: Clear all queued fields or remove individual items
+- **Collapsible Pages**: Page sections in queue can be collapsed/expanded
+- **Toggle Visibility**: Use Queue button in toolbar to show/hide the sidebar
+
+### PDF Controls
+The PDF navigation controls (zoom, pagination) are now floating/sticky:
+- **Floating Controls**: Stay visible at top of screen when scrolling
+- **Dynamic Positioning**: Automatically centered relative to PDF canvas
+- **Always Accessible**: No need to scroll back up to change pages or zoom
+
 ## Migration Status
 
 The application is currently using the Unified Field Model (`useUnifiedFields: true` in store). The legacy field system (Field, LogicField, BooleanField) is deprecated and will be removed in future updates.

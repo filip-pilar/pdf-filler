@@ -56,8 +56,8 @@ export function PdfNavigationBar({
     }
   };
   return (
-    <div className="flex items-center justify-center bg-background border-b py-2 px-4">
-      <Card className="px-2 py-1">
+    <Card className="bg-background/95 backdrop-blur-xl shadow-lg border">
+      <div className="flex items-center justify-center px-3 py-1.5">
         <div className="flex items-center gap-1">
         <Button
           variant="ghost"
@@ -119,7 +119,7 @@ export function PdfNavigationBar({
         </Button>
         
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 }

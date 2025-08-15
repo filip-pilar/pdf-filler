@@ -16,7 +16,11 @@ import {
   loadFieldsFromStorage,
   loadGridSettings,
   loadPdfMetadata,
-  clearStoredData
+  clearStoredData,
+  saveQueuedFields,
+  loadQueuedFields,
+  saveRightSidebarState,
+  loadRightSidebarState
 } from '../utils/localStorage';
 
 export type GridSize = 10 | 25 | 50 | 100;
@@ -50,6 +54,17 @@ interface FieldState {
   gridEnabled: boolean;
   gridSize: GridSize;
   showGrid: boolean;
+  
+  // Import queue
+  queuedFields: UnifiedField[];
+  isRightSidebarOpen: boolean;
+  
+  // Queue operations
+  addToQueue: (fields: UnifiedField[]) => void;
+  removeFromQueue: (fieldId: string) => void;
+  clearQueue: () => void;
+  moveFromQueueToCanvas: (fieldId: string, position: { x: number; y: number }) => void;
+  setRightSidebarOpen: (open: boolean) => void;
   
   // Regular field operations
   addField: (field: Partial<Field>) => Field;
@@ -238,6 +253,10 @@ export const useFieldStore = create<FieldState>()(
   gridEnabled: false,
   gridSize: 10,
   showGrid: false,
+  
+  // Import queue
+  queuedFields: [],
+  isRightSidebarOpen: false,
   
   addField: (fieldData) => {
     const existingFields = get().fields;
@@ -882,6 +901,48 @@ export const useFieldStore = create<FieldState>()(
   
   clearUnifiedFields: () => set({ unifiedFields: [], selectedUnifiedFieldId: null }),
   
+  // Queue operations
+  addToQueue: (fields) => {
+    set((state) => ({
+      queuedFields: [...state.queuedFields, ...fields],
+      isRightSidebarOpen: true // Auto-open sidebar when fields are added
+    }));
+  },
+  
+  removeFromQueue: (fieldId) => {
+    set((state) => ({
+      queuedFields: state.queuedFields.filter(f => f.id !== fieldId)
+    }));
+  },
+  
+  clearQueue: () => {
+    set({ queuedFields: [] });
+  },
+  
+  moveFromQueueToCanvas: (fieldId, position) => {
+    const state = get();
+    const queuedField = state.queuedFields.find(f => f.id === fieldId);
+    
+    if (queuedField) {
+      // Add field to canvas with the dropped position
+      const fieldToAdd = {
+        ...queuedField,
+        position,
+        enabled: true
+      };
+      
+      // Add to unified fields
+      set((state) => ({
+        unifiedFields: [...state.unifiedFields, fieldToAdd],
+        queuedFields: state.queuedFields.filter(f => f.id !== fieldId) // Remove from queue
+      }));
+    }
+  },
+  
+  setRightSidebarOpen: (open) => {
+    set({ isRightSidebarOpen: open });
+  },
+  
   duplicateUnifiedField: (id) => {
     const field = get().unifiedFields.find(f => f.id === id);
     if (field) {
@@ -1157,6 +1218,8 @@ export const useFieldStore = create<FieldState>()(
     const fields = loadFieldsFromStorage();
     const gridSettings = loadGridSettings();
     const pdfMetadata = loadPdfMetadata();
+    const queuedFields = loadQueuedFields();
+    const rightSidebarOpen = loadRightSidebarState();
     
     if (fields && fields.length > 0) {
       set({ unifiedFields: fields });
@@ -1173,6 +1236,12 @@ export const useFieldStore = create<FieldState>()(
     if (pdfMetadata) {
       set({ totalPages: pdfMetadata.totalPages });
     }
+    
+    if (queuedFields && queuedFields.length > 0) {
+      set({ queuedFields });
+    }
+    
+    set({ isRightSidebarOpen: rightSidebarOpen });
   },
   
   clearStorage: () => {
@@ -1226,5 +1295,21 @@ useFieldStore.subscribe(
         lastModified: metadata.lastModified,
       });
     }
+  }
+);
+
+// Save queued fields whenever they change
+useFieldStore.subscribe(
+  (state) => state.queuedFields,
+  (fields) => {
+    saveQueuedFields(fields);
+  }
+);
+
+// Save right sidebar state whenever it changes
+useFieldStore.subscribe(
+  (state) => state.isRightSidebarOpen,
+  (isOpen) => {
+    saveRightSidebarState(isOpen);
   }
 );

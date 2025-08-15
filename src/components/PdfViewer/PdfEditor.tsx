@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { pdfjs } from 'react-pdf';
 import { useFieldStore } from '@/store/fieldStore';
 import { usePositionPickerStore } from '@/store/positionPickerStore';
@@ -11,7 +11,6 @@ import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDia
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { PositionPickerOverlay } from '@/components/PositionPicker/PositionPickerOverlay';
 import { PdfDropTarget } from './PdfDropTarget';
-import { cn } from '@/lib/utils';
 import type { FieldType } from '@/types/field.types';
 import type { UnifiedField } from '@/types/unifiedField.types';
 
@@ -29,6 +28,7 @@ interface PdfEditorProps {
 export function PdfEditor({ }: PdfEditorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
+  const [containerBounds, setContainerBounds] = useState({ left: 0, width: 0 });
   
   // Local state for PDF display
   const [numPages, setNumPages] = useState(0);
@@ -63,6 +63,33 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
   } = useFieldStore();
   const { snapPosition } = useGridSnap();
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
+  
+  // Track container position for centering controls
+  useEffect(() => {
+    const updateBounds = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setContainerBounds({ left: rect.left, width: rect.width });
+      }
+    };
+    
+    updateBounds();
+    window.addEventListener('resize', updateBounds);
+    
+    // Update bounds when sidebar toggles (slight delay for animation)
+    const observer = new ResizeObserver(() => {
+      setTimeout(updateBounds, 100);
+    });
+    
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    
+    return () => {
+      window.removeEventListener('resize', updateBounds);
+      observer.disconnect();
+    };
+  }, []);
   
   // Handle double-click on unified fields
   const handleUnifiedFieldDoubleClick = (field: UnifiedField) => {
@@ -125,28 +152,41 @@ export function PdfEditor({ }: PdfEditorProps = {}) {
 
   return (
     <>
-      <div className="relative w-full h-full flex flex-col overflow-hidden">
-        <PdfNavigationBar
-          currentPage={currentPage}
-          numPages={numPages}
-          scale={scale}
-          onPageChange={setCurrentPage}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onFitToWidth={handleFitToWidth}
-          onZoomChange={setScale}
-        />
-        
-        <div 
-          ref={containerRef} 
-          className={cn(
-            "flex-1 overflow-auto bg-muted/30 transition-colors"
-          )}
+      {/* Fixed floating controls centered over PDF editor */}
+      <div 
+        className="fixed z-50 pointer-events-none"
+        style={{ 
+          top: '80px',
+          left: `${containerBounds.left + containerBounds.width / 2}px`,
+          transform: 'translateX(-50%)'
+        }}
+      >
+        <div className="pointer-events-auto">
+          <PdfNavigationBar
+            currentPage={currentPage}
+            numPages={numPages}
+            scale={scale}
+            onPageChange={setCurrentPage}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onFitToWidth={handleFitToWidth}
+            onZoomChange={setScale}
+          />
+        </div>
+      </div>
+      
+      <div 
+        ref={containerRef}
+        className="relative w-full h-full overflow-auto bg-muted/30 transition-colors"
+      >
+        <div
           style={{
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
             padding: '2rem',
+            paddingTop: '5rem', // Extra padding for floating controls
+            minHeight: '100%',
           }}
         >
           {pdfUrl && (

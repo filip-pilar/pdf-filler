@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
   GRID_SETTINGS: 'pdf_filler_grid_settings',
   PDF_METADATA: 'pdf_filler_pdf_metadata',
   APP_VERSION: 'pdf_filler_app_version',
+  QUEUED_FIELDS: 'pdf_filler_queued_fields',
+  RIGHT_SIDEBAR_OPEN: 'pdf_filler_right_sidebar_open',
 } as const;
 
 const APP_VERSION = '2.0.0';
@@ -241,12 +243,77 @@ export function importDataFromJson(jsonString: string): boolean {
 }
 
 /**
+ * Save queued fields to localStorage
+ */
+export function saveQueuedFields(fields: UnifiedField[]): void {
+  try {
+    const fieldsToSave = fields.map(field => ({
+      ...field,
+      sampleValue: typeof field.sampleValue === 'boolean' ? field.sampleValue : undefined,
+    }));
+    localStorage.setItem(STORAGE_KEYS.QUEUED_FIELDS, JSON.stringify(fieldsToSave));
+  } catch (error) {
+    console.error('Failed to save queued fields:', error);
+  }
+}
+
+/**
+ * Load queued fields from localStorage
+ */
+export function loadQueuedFields(): UnifiedField[] | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.QUEUED_FIELDS);
+    if (!stored) return null;
+    
+    const fields = JSON.parse(stored) as UnifiedField[];
+    if (!Array.isArray(fields)) return null;
+    
+    return fields.filter(field => 
+      field.id && 
+      field.key && 
+      field.type && 
+      field.page && 
+      field.position
+    );
+  } catch (error) {
+    console.error('Failed to load queued fields:', error);
+    return null;
+  }
+}
+
+/**
+ * Save right sidebar state
+ */
+export function saveRightSidebarState(isOpen: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RIGHT_SIDEBAR_OPEN, JSON.stringify(isOpen));
+  } catch (error) {
+    console.error('Failed to save sidebar state:', error);
+  }
+}
+
+/**
+ * Load right sidebar state
+ */
+export function loadRightSidebarState(): boolean {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.RIGHT_SIDEBAR_OPEN);
+    if (!stored) return false;
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Failed to load sidebar state:', error);
+    return false;
+  }
+}
+
+/**
  * Check if there's stored data available
  */
 export function hasStoredData(): boolean {
   return !!(
     localStorage.getItem(STORAGE_KEYS.UNIFIED_FIELDS) ||
     localStorage.getItem(STORAGE_KEYS.GRID_SETTINGS) ||
-    localStorage.getItem(STORAGE_KEYS.PDF_METADATA)
+    localStorage.getItem(STORAGE_KEYS.PDF_METADATA) ||
+    localStorage.getItem(STORAGE_KEYS.QUEUED_FIELDS)
   );
 }

@@ -5,7 +5,7 @@ import { useFieldStore } from '@/store/fieldStore';
 import { useGridSnap } from '@/hooks/useGridSnap';
 import type { UnifiedField, OptionRenderType } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
-import { Image, PenTool, Move, Settings, Minus, Plus, Lock } from 'lucide-react';
+import { Image, PenTool, Move, Settings, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';

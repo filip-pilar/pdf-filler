@@ -1,4 +1,4 @@
-import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2 } from 'lucide-react';
+import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Inbox } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ import {
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonImportRef = useRef<HTMLInputElement>(null);
-  const { clearAll, clearStorage, loadFromStorage, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields } = useFieldStore();
+  const { clearAll, clearStorage, loadFromStorage, fields, unifiedFields, setPdfFile, setPdfUrl, pdfFile, useUnifiedFields, queuedFields, isRightSidebarOpen, setRightSidebarOpen } = useFieldStore();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showNewProjectAlert, setShowNewProjectAlert] = useState(false);
@@ -167,6 +167,23 @@ export function Toolbar() {
           >
             <FileJson className="h-4 w-4" />
             Export
+          </Button>
+          
+          <div className="w-px h-6 bg-border mx-1" />
+          
+          <Button
+            variant={isRightSidebarOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => setRightSidebarOpen(!isRightSidebarOpen)}
+            className="relative"
+          >
+            <Inbox className="h-4 w-4" />
+            Queue
+            {queuedFields.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                {queuedFields.length}
+              </span>
+            )}
           </Button>
           
           <div className="w-px h-6 bg-border mx-1" />

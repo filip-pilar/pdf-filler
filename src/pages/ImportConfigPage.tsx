@@ -24,7 +24,7 @@ export function ImportConfigPage() {
   const location = useLocation();
   const state = location.state as LocationState;
   
-  const { addUnifiedField, totalPages } = useFieldStore();
+  const { addToQueue, totalPages } = useFieldStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -54,30 +54,24 @@ export function ImportConfigPage() {
     setIsProcessing(true);
     
     try {
-      // Process each mapped field
-      // Track position offsets per page to cascade fields
-      const pageOffsets: Record<number, { x: number; y: number; count: number }> = {};
+      // Collect all fields to add to queue
+      const fieldsToQueue: any[] = [];
+      
+      // Generate unique IDs for fields
+      const generateId = () => `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       mappedFields.forEach(mapping => {
-        // Initialize page offset if not exists
-        if (!pageOffsets[mapping.page]) {
-          pageOffsets[mapping.page] = { x: 50, y: 50, count: 0 };
-        }
-        
-        const offset = pageOffsets[mapping.page];
         // Handle auto-flattening for objects
         if (mapping.fieldVariant === 'text-multi' && mapping.options) {
           // Create separate fields for multi-placement
-          mapping.options.forEach((option: string, idx: number) => {
-            addUnifiedField({
+          mapping.options.forEach((option: string) => {
+            fieldsToQueue.push({
+              id: generateId(),
               key: `${mapping.key}_${option}`,
               type: mapping.type as any,
               variant: 'single',
               page: mapping.page,
-              position: { 
-                x: offset.x + (idx * 150), 
-                y: offset.y + (offset.count * 40) 
-              },
+              position: { x: 0, y: 0 }, // Position will be set when dragged from queue
               enabled: true,
               structure: 'simple',
               placementCount: 1,
@@ -85,47 +79,30 @@ export function ImportConfigPage() {
               positionVersion: 'top-edge' as const
             });
           });
-          
-          // Update offset for next field
-          pageOffsets[mapping.page].count++;
-          if (offset.x + 600 > 800) { // If getting too wide, wrap to next row
-            pageOffsets[mapping.page].x = 50;
-            pageOffsets[mapping.page].y += 50;
-          } else {
-            pageOffsets[mapping.page].x += (mapping.options.length * 150) + 20;
-          }
         } else {
           // Add single unified field
-          const fieldToAdd = {
+          fieldsToQueue.push({
+            id: generateId(),
             key: mapping.key,
             type: mapping.type as any,
             variant: mapping.fieldVariant as any,
             page: mapping.page,
-            position: { 
-              x: offset.x, 
-              y: offset.y + (offset.count * 40) // Stack fields vertically with 40px spacing
-            },
+            position: { x: 0, y: 0 }, // Position will be set when dragged from queue
             enabled: true,
             structure: (mapping.fieldVariant === 'text-list' ? 'array' : 'simple') as any,
             placementCount: mapping.placementCount,
             options: mapping.options,
             sampleValue: state.fields.find((f: any) => f.key === mapping.key)?.sampleValue,
             positionVersion: 'top-edge' as const
-          };
-          addUnifiedField(fieldToAdd);
-          
-          // Update offset for next field
-          pageOffsets[mapping.page].count++;
-          // Wrap to next column after 15 fields
-          if (offset.count >= 15) {
-            pageOffsets[mapping.page].x += 200;
-            pageOffsets[mapping.page].y = 50;
-            pageOffsets[mapping.page].count = 0;
-          }
+          });
         }
       });
       
-      toast.success(`Successfully imported ${mappedFields.length} fields`);
+      // Add all fields to queue at once
+      if (fieldsToQueue.length > 0) {
+        addToQueue(fieldsToQueue);
+        toast.success(`Successfully added ${fieldsToQueue.length} fields to queue`);
+      }
       
       // Navigate back to home after successful import
       navigate('/');

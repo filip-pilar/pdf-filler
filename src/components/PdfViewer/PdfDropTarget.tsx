@@ -4,6 +4,7 @@ import { useFieldStore } from '@/store/fieldStore';
 import { useGridSnap } from '@/hooks/useGridSnap';
 import type { DragItem } from '@/components/AppSidebar/DraggableFieldItem';
 import type { FieldType } from '@/types/field.types';
+import type { UnifiedField } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
 
 interface PdfDropTargetProps {
@@ -32,12 +33,12 @@ export function PdfDropTarget({
   className
 }: PdfDropTargetProps) {
   const dropRef = useRef<HTMLDivElement>(null);
-  const { gridEnabled } = useFieldStore();
+  const { gridEnabled, moveFromQueueToCanvas } = useFieldStore();
   const { snapPosition } = useGridSnap();
 
   const [{ isOver, canDrop }, drop] = useDrop({
-    accept: 'NEW_FIELD',
-    drop: (item: DragItem, monitor) => {
+    accept: ['NEW_FIELD', 'QUEUED_FIELD'],
+    drop: (item: DragItem | { field: UnifiedField }, monitor) => {
       if (!dropRef.current || !canDrop) return;
 
       // Get the drop position relative to the PDF canvas
@@ -54,8 +55,14 @@ export function PdfDropTarget({
       const screenX = relativeX / scale;
       const screenY = relativeY / scale;
 
+      // Check if this is a queued field or a new field from sidebar
+      const isQueuedField = 'field' in item;
+
+      // Get field type and size
+      const fieldType = isQueuedField ? item.field.type : item.fieldType;
+      
       // Get field size for centering (similar to position picker logic)
-      const getFieldSize = (fieldType: FieldType) => {
+      const getFieldSize = (fieldType: FieldType | string) => {
         switch (fieldType) {
           case 'checkbox':
             return { width: 25, height: 25 };
@@ -68,7 +75,7 @@ export function PdfDropTarget({
         }
       };
 
-      const fieldSize = getFieldSize(item.fieldType);
+      const fieldSize = getFieldSize(fieldType);
 
       // Center the field on the drop position
       const centeredScreenX = screenX - (fieldSize.width / 2);
@@ -91,7 +98,17 @@ export function PdfDropTarget({
         y: Math.max(0, Math.min(finalPosition.y, pageHeight - fieldSize.height))
       };
 
-      onFieldDrop(item.fieldType, boundedPosition, currentPage);
+      // Handle drop based on type
+      if (isQueuedField) {
+        // Move field from queue to canvas
+        // Only place if the field is on the current page
+        if (item.field.page === currentPage) {
+          moveFromQueueToCanvas(item.field.id, boundedPosition);
+        }
+      } else {
+        // Create new field from sidebar
+        onFieldDrop(item.fieldType, boundedPosition, currentPage);
+      }
     },
     canDrop: () => {
       // Can only drop if we have a PDF loaded and valid dimensions
