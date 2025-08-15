@@ -11,7 +11,6 @@ import {
   FileText,
   List,
   Settings,
-  Plus,
   Braces,
   Lock,
   LockOpen,
@@ -32,8 +31,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
-import { CompositeFieldDialog } from '@/components/CompositeFieldDialog';
-import { DataFieldDialog } from '@/components/DataFieldDialog';
 import { cn } from '@/lib/utils';
 
 interface UnifiedFieldsListProps {
@@ -41,14 +38,11 @@ interface UnifiedFieldsListProps {
 }
 
 export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
-  const { unifiedFields, totalPages, pdfUrl, toggleUnifiedFieldLock } = useFieldStore();
+  const { unifiedFields, totalPages, pdfUrl, toggleUnifiedFieldLock, selectUnifiedField, deselectUnifiedField, setCurrentPage, currentPage } = useFieldStore();
   const enabledFields = unifiedFields.filter(f => f.enabled);
   
   // State for managing collapsed pages - start with all expanded
   const [collapsedPages, setCollapsedPages] = useState<Set<number>>(new Set());
-  const [showCompositeDialog, setShowCompositeDialog] = useState(false);
-  const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
-  const [showDataFieldDialog, setShowDataFieldDialog] = useState(false);
 
   // Group fields by page number
   const fieldsByPage = enabledFields.reduce((acc, field) => {
@@ -114,43 +108,15 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
     setCollapsedPages(newCollapsed);
   };
   
-  // Handle field click with special handling for composite fields
+  // Handle field click
   const handleFieldClick = (fieldId: string) => {
-    const field = unifiedFields.find(f => f.id === fieldId);
-    if (field?.type === 'composite-text') {
-      setEditingCompositeField(field);
-      setShowCompositeDialog(true);
-    } else {
-      onFieldClick?.(fieldId);
-    }
+    onFieldClick?.(fieldId);
   };
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="flex items-center justify-between">
-        <span>Fields ({enabledFields.length})</span>
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 py-0 text-xs gap-1"
-            onClick={() => setShowDataFieldDialog(true)}
-            title="Create Data-Only Field"
-          >
-            <Database className="h-3 w-3" />
-            <span>Data</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 py-0 text-xs gap-1"
-            onClick={() => setShowCompositeDialog(true)}
-            title="Create Composite Field"
-          >
-            <Plus className="h-3 w-3" />
-            <span>Composite</span>
-          </Button>
-        </div>
+      <SidebarGroupLabel>
+        Existing Fields {enabledFields.length > 0 && `(${enabledFields.length})`}
       </SidebarGroupLabel>
       
       <SidebarGroupContent>
@@ -199,9 +165,22 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
                                 "cursor-pointer",
                                 field.locked && "bg-muted/50"
                               )}
-                              onClick={() => handleFieldClick(field.id)}
                             >
-                              <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+                              <div 
+                                className="flex items-center justify-between gap-2 px-3 py-1.5"
+                                onClick={() => handleFieldClick(field.id)}
+                                onMouseEnter={() => {
+                                  // Only select if field has a position (is visible on PDF)
+                                  if (field.position) {
+                                    selectUnifiedField(field.id);
+                                    // Navigate to the field's page if not already there
+                                    if (field.page !== currentPage) {
+                                      setCurrentPage(field.page);
+                                    }
+                                  }
+                                }}
+                                onMouseLeave={() => deselectUnifiedField()}
+                              >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <Icon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                   <span className="text-xs font-mono truncate">
@@ -255,25 +234,6 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
           </div>
         )}
       </SidebarGroupContent>
-      
-      <CompositeFieldDialog
-        isOpen={showCompositeDialog}
-        onClose={() => {
-          setShowCompositeDialog(false);
-          setEditingCompositeField(undefined);
-        }}
-        editingField={editingCompositeField}
-        onSave={() => {
-          // Field is automatically saved to store by the dialog
-          setShowCompositeDialog(false);
-          setEditingCompositeField(undefined);
-        }}
-      />
-      
-      <DataFieldDialog
-        isOpen={showDataFieldDialog}
-        onClose={() => setShowDataFieldDialog(false)}
-      />
     </SidebarGroup>
   );
 }

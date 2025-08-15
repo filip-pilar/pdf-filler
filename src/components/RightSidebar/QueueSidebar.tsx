@@ -22,7 +22,6 @@ export function QueueSidebar() {
   const { 
     queuedFields, 
     clearQueue,
-    isRightSidebarOpen,
     setRightSidebarOpen
   } = useFieldStore();
   

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
 import { DraggableFieldsList } from './DraggableFieldsList';
 import { UnifiedFieldsList } from './UnifiedFieldsList';
-import { AddOptionsFieldButton } from './AddOptionsFieldButton';
+import { ClickToOpenFields } from './ClickToOpenFields';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import type { UnifiedField } from '@/types/unifiedField.types';
@@ -11,8 +11,6 @@ import {
   SidebarContent,
   SidebarHeader,
   SidebarSeparator,
-  SidebarGroup,
-  SidebarGroupContent,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -52,16 +50,18 @@ export function FieldToolbox() {
         
         <SidebarContent>
           <ScrollArea className="h-full">
-            <div className="pb-8 pr-2">
+            <div className="pb-8 pr-2 space-y-2">
+              {/* Group 1: Draggable Fields */}
               <DraggableFieldsList />
               
               <SidebarSeparator />
-              <SidebarGroup>
-                <SidebarGroupContent className="px-2">
-                  <AddOptionsFieldButton onClick={handleAddOptionsField} />
-                </SidebarGroupContent>
-              </SidebarGroup>
               
+              {/* Group 2: Click-to-open Fields */}
+              <ClickToOpenFields onAddOptionsField={handleAddOptionsField} />
+              
+              <SidebarSeparator />
+              
+              {/* Group 3: Existing Fields by Page */}
               <UnifiedFieldsList onFieldClick={handleUnifiedFieldClick} />
             </div>
           </ScrollArea>

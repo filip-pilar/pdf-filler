@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { Separator } from '@/components/ui/separator';
 import { Toolbar } from '@/components/Toolbar/Toolbar';
 import { StatusBar } from '@/components/StatusBar/StatusBar';
+import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal/KeyboardShortcutsModal';
 import { cn } from '@/lib/utils';
 
 function App() {
@@ -18,7 +19,20 @@ function App() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   
   // Enable keyboard shortcuts
-  useKeyboardShortcuts();
+  const { showHelpModal, setShowHelpModal } = useKeyboardShortcuts();
+  
+  // Handle Ctrl/Cmd + [ for left sidebar toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        setLeftSidebarOpen(prev => !prev);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   
   // Auto-expand left sidebar when PDF is loaded
   useEffect(() => {
@@ -72,6 +86,11 @@ function App() {
         </SidebarProvider>
         <StatusBar />
       </div>
+      
+      <KeyboardShortcutsModal 
+        open={showHelpModal} 
+        onOpenChange={setShowHelpModal} 
+      />
     </DndProvider>
   );
 }

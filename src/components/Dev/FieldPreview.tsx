@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 interface FieldMapping {
   key: string;
   displayName: string;
-  type: any;
+  type: string;
   fieldVariant: string;
   options?: Array<{ label: string; value: string }>;
   layoutDirection?: 'vertical' | 'horizontal' | 'grid';
@@ -21,10 +21,10 @@ interface FieldMapping {
     defaultChecked: boolean;
   };
   multiSelect?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   required?: boolean;
   placementCount?: number;
-  flattenedFields?: any[];
+  flattenedFields?: FieldMapping[];
 }
 
 export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) => {
@@ -37,7 +37,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
               {mapping.displayName}
               {mapping.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <Select defaultValue={mapping.defaultValue || mapping.options?.[0]?.value}>
+            <Select defaultValue={(mapping.defaultValue as string) || mapping.options?.[0]?.value}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
@@ -66,7 +66,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
               {mapping.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <RadioGroup 
-              defaultValue={mapping.defaultValue || mapping.options?.[0]?.value}
+              defaultValue={(mapping.defaultValue as string) || mapping.options?.[0]?.value}
               className={`flex ${radioLayout}`}
             >
               {mapping.options?.map(opt => (
@@ -104,7 +104,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
                 <div key={opt.value} className="flex items-center space-x-2">
                   <Checkbox 
                     id={`${mapping.key}-${opt.value}`}
-                    defaultChecked={mapping.defaultValue?.includes?.(opt.value)}
+                    defaultChecked={(mapping.defaultValue as string[])?.includes?.(opt.value)}
                   />
                   <Label htmlFor={`${mapping.key}-${opt.value}`} className="text-sm font-normal">
                     {opt.label}
@@ -122,7 +122,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
             <div className="flex items-center space-x-2">
               <Checkbox 
                 id={mapping.key}
-                defaultChecked={mapping.checkboxMapping?.defaultChecked || mapping.defaultValue}
+                defaultChecked={mapping.checkboxMapping?.defaultChecked || (mapping.defaultValue as boolean)}
               />
               <Label htmlFor={mapping.key} className="text-sm">
                 {mapping.displayName}
@@ -145,7 +145,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
             <Input 
               type="text" 
               placeholder={`Enter ${mapping.displayName.toLowerCase()}`}
-              defaultValue={mapping.defaultValue}
+              defaultValue={mapping.defaultValue as string}
               className="w-full"
             />
           </div>
@@ -229,7 +229,7 @@ export const FieldPreview: React.FC<{ mapping: FieldMapping }> = ({ mapping }) =
             <Input 
               type="text" 
               placeholder={`Enter ${mapping.displayName.toLowerCase()}`}
-              defaultValue={mapping.defaultValue}
+              defaultValue={mapping.defaultValue as string}
               className="w-full"
             />
           </div>

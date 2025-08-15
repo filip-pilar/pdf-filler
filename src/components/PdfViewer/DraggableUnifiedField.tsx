@@ -6,7 +6,7 @@ import { useFieldStore } from '@/store/fieldStore';
 import { useGridSnap } from '@/hooks/useGridSnap';
 import type { UnifiedField, OptionRenderType } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
-import { Image, PenTool, Move, Settings, Minus, Plus } from 'lucide-react';
+import { Image, PenTool, Move, Settings, Minus, Plus, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -452,21 +452,27 @@ export function DraggableUnifiedField({
         disabled={!!field.locked}
       >
         <div ref={nodeRef} style={{ position: 'absolute', width: scaledWidth, height: scaledHeight }}>
-          {/* Control bar above field - hidden when field is locked */}
-          {!field.locked && (
+          {/* Control bar above field - always shown when selected, but styled differently when locked */}
+          {(isSelected || (!field.locked && (isHovered || isDragging))) && (
             <div className={cn(
               "absolute flex items-center gap-1 transition-all duration-150",
               "-top-7 left-0 z-10",
-              isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+              (isHovered || isDragging || isSelected) ? "opacity-100" : "opacity-0 pointer-events-none"
             )}>
-            {/* Drag handle */}
+            {/* Drag handle / Label */}
             <div className={cn(
-              "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
+              field.locked 
+                ? "bg-gray-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 shadow-sm"
+                : "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
               "flex items-center gap-0.5 h-6",
-              isSelected && "bg-blue-600",
+              isSelected && !field.locked && "bg-blue-600",
               isDragging && "!opacity-100 bg-blue-700"
             )}>
-              <Move className="h-3 w-3" />
+              {field.locked ? (
+                <Lock className="h-3 w-3" />
+              ) : (
+                <Move className="h-3 w-3" />
+              )}
               <span className="text-[10px] font-mono">{field.key}</span>
             </div>
             
@@ -603,21 +609,27 @@ export function DraggableUnifiedField({
           height: scaledHeight 
         }}
       >
-        {/* Control bar above field - hidden when field is locked */}
-        {!field.locked && (
+        {/* Control bar above field - always shown when selected, but styled differently when locked */}
+        {(isSelected || (!field.locked && (isHovered || isDragging))) && (
           <div className={cn(
             "absolute flex items-center gap-1 transition-all duration-150",
             "-top-7 left-0 z-10",
-            isHovered || isDragging || isSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+            (isHovered || isDragging || isSelected) ? "opacity-100" : "opacity-0 pointer-events-none"
           )}>
-          {/* Drag handle */}
+          {/* Drag handle / Label */}
           <div className={cn(
-            "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
+            field.locked 
+              ? "bg-gray-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 shadow-sm"
+              : "drag-handle bg-blue-500/95 backdrop-blur-sm text-white rounded px-1.5 py-0.5 cursor-move shadow-sm",
             "flex items-center gap-0.5 h-6",
-            isSelected && "bg-blue-600",
+            isSelected && !field.locked && "bg-blue-600",
             isDragging && "!opacity-100 bg-blue-700"
           )}>
-            <Move className="h-3 w-3" />
+            {field.locked ? (
+              <Lock className="h-3 w-3" />
+            ) : (
+              <Move className="h-3 w-3" />
+            )}
             <span className="text-[10px] font-mono">{field.key}</span>
           </div>
           

@@ -126,9 +126,10 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
       downloadPDF(filledPdfBytes, filename);
       
       toast.success('PDF preview generated successfully!');
-    } catch (error: any) {
+    } catch (error) {
       // Don't show error if it was an abort
-      if (error?.name === 'AbortError' || error?.message?.includes('abort')) {
+      const err = error as Error;
+      if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
         console.log('PDF export was canceled');
       } else {
         console.error('Failed to generate PDF preview:', error);

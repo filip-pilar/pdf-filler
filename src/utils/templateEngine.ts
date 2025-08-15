@@ -108,13 +108,13 @@ export class TemplateEngine {
    */
   private static getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     const keys = path.split('.');
-    let value: any = obj;
+    let value: unknown = obj;
     
     for (const key of keys) {
       if (value == null || typeof value !== 'object') {
         return null;
       }
-      value = value[key];
+      value = (value as Record<string, unknown>)[key];
     }
     
     return value;

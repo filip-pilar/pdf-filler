@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { pdfjs } from 'react-pdf';
 import { useFieldStore } from '@/store/fieldStore';
 import { usePositionPickerStore } from '@/store/positionPickerStore';
@@ -125,16 +125,48 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
   };
 
 
-  const handleZoomIn = () => setScale(Math.min(scale + 0.25, 3));
-  const handleZoomOut = () => setScale(Math.max(scale - 0.25, 0.5));
+  const handleZoomIn = useCallback(() => setScale(prev => Math.min(prev + 0.25, 3)), []);
+  const handleZoomOut = useCallback(() => setScale(prev => Math.max(prev - 0.25, 0.5)), []);
   
-  const handleFitToWidth = () => {
+  const handleFitToWidth = useCallback(() => {
     if (containerRef.current && naturalPageSize.width) {
       const containerWidth = containerRef.current.clientWidth - 64;
       const newScale = containerWidth / naturalPageSize.width;
       setScale(Math.min(newScale, 2));
     }
-  };
+  }, [naturalPageSize.width]);
+  
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when typing in inputs
+      if (e.target instanceof HTMLInputElement || 
+          e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      // Zoom in (Ctrl/Cmd + Plus)
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        handleZoomIn();
+      }
+      
+      // Zoom out (Ctrl/Cmd + Minus)
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        handleZoomOut();
+      }
+      
+      // Reset zoom (Ctrl/Cmd + 0)
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        handleFitToWidth();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleFitToWidth, handleZoomIn, handleZoomOut]);
   
   // Auto-adjust zoom when sidebars open/close
   useEffect(() => {
@@ -154,7 +186,7 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [isRightSidebarOpen, leftSidebarOpen]);
+  }, [isRightSidebarOpen, leftSidebarOpen, naturalPageSize.width, scale]);
 
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {

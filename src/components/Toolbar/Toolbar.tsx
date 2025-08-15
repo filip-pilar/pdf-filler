@@ -1,4 +1,4 @@
-import { Upload, FileJson, Database, FileText, AlertTriangle, Save, Download, Trash2, Undo2, Redo2 } from 'lucide-react';
+import { Upload, FileJson, Database, AlertTriangle, Save, Download, Trash2, Undo2, Redo2 } from 'lucide-react';
 import { ViewVerticalIcon } from '@radix-ui/react-icons';
 import { useRef, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
@@ -153,6 +153,7 @@ export function Toolbar() {
             onClick={handleImportSchema}
             disabled={!pdfFile}
             title={!pdfFile ? "Upload a PDF first" : "Import schema from SQL, JSON, or TypeScript"}
+            data-import-trigger
           >
             <Database className="h-4 w-4" />
             Import
@@ -164,6 +165,7 @@ export function Toolbar() {
             onClick={handleExport}
             disabled={!pdfFile || activeFieldsCount === 0}
             title={!pdfFile ? "Upload a PDF first" : activeFieldsCount === 0 ? "No fields to export" : "Export configuration"}
+            data-export-trigger
           >
             <FileJson className="h-4 w-4" />
             Export

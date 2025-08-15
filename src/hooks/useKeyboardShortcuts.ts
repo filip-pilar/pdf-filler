@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFieldStore } from '@/store/fieldStore';
+import { usePositionPickerStore } from '@/store/positionPickerStore';
 
 export function useKeyboardShortcuts() {
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  
   const { 
     selectedUnifiedFieldId, 
     unifiedFields, 
@@ -9,8 +13,19 @@ export function useKeyboardShortcuts() {
     deleteUnifiedField, 
     duplicateUnifiedField,
     selectUnifiedField,
-    addUnifiedField
+    addUnifiedField,
+    deselectUnifiedField,
+    gridEnabled,
+    setGridEnabled,
+    setShowGrid,
+    currentPage,
+    totalPages,
+    setCurrentPage,
+    isRightSidebarOpen,
+    setRightSidebarOpen
   } = useFieldStore();
+  
+  const { isPickingPosition, cancelPicking } = usePositionPickerStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -22,8 +37,8 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Delete selected field (only Delete key, not Backspace to avoid accidental deletion)
-      if (e.key === 'Delete') {
+      // Delete selected field (Ctrl/Cmd + Delete)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'Delete' || e.key === 'Backspace')) {
         if (selectedUnifiedFieldId) {
           e.preventDefault();
           deleteUnifiedField(selectedUnifiedFieldId);
@@ -31,10 +46,19 @@ export function useKeyboardShortcuts() {
       }
 
       // Duplicate field (Ctrl/Cmd + D)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && !e.shiftKey) {
         if (selectedUnifiedFieldId) {
           e.preventDefault();
           duplicateUnifiedField(selectedUnifiedFieldId);
+        }
+      }
+      
+      // Duplicate field with offset (Ctrl/Cmd + Shift + D)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'd') {
+        if (selectedUnifiedFieldId) {
+          e.preventDefault();
+          duplicateUnifiedField(selectedUnifiedFieldId);
+          // The duplicateUnifiedField already adds a 20px offset
         }
       }
 
@@ -71,8 +95,52 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // Move selected field with arrow keys (skip if field is locked)
-      if (selectedField && !selectedField.locked && selectedField.position && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Navigate PDF pages with Ctrl/Cmd + Arrow keys
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        if (e.key === 'ArrowLeft' && currentPage > 1) {
+          e.preventDefault();
+          setCurrentPage(currentPage - 1);
+        } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+          e.preventDefault();
+          setCurrentPage(currentPage + 1);
+        }
+      }
+      
+      // Lock/unlock selected field (Ctrl/Cmd + L)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        if (selectedUnifiedFieldId) {
+          e.preventDefault();
+          const field = unifiedFields.find(f => f.id === selectedUnifiedFieldId);
+          if (field) {
+            updateUnifiedField(selectedUnifiedFieldId, { locked: !field.locked });
+          }
+        }
+      }
+      
+      // Preview mode toggle (Ctrl/Cmd + P)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setPreviewMode(prev => !prev);
+      }
+      
+      // Open Import dialog (Ctrl/Cmd + I)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+        e.preventDefault();
+        // Trigger the import modal by clicking the import button
+        const importBtn = document.querySelector('[data-import-trigger]') as HTMLButtonElement;
+        if (importBtn) importBtn.click();
+      }
+      
+      // Open Export dialog (Ctrl/Cmd + E)  
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        // Trigger the export modal by clicking the export button
+        const exportBtn = document.querySelector('[data-export-trigger]') as HTMLButtonElement;
+        if (exportBtn) exportBtn.click();
+      }
+      
+      // Move selected field with arrow keys - now requires Shift key
+      if (selectedField && !selectedField.locked && selectedField.position && e.shiftKey && !e.ctrlKey && !e.metaKey) {
         const moveAmount = e.altKey ? 10 : 1;
         let moved = false;
         const newPosition = { ...selectedField.position };
@@ -138,7 +206,35 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // Note: Page navigation and zoom controls are now handled in PdfEditor component
+      // Open PDF file picker (Ctrl/Cmd + O)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        // Trigger the file input click
+        const fileInput = document.querySelector('input[type="file"][accept="application/pdf"]') as HTMLInputElement;
+        if (fileInput) {
+          fileInput.click();
+        }
+      }
+      
+      // Save to localStorage (Ctrl/Cmd + S)
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        // Storage already auto-saves, but we can trigger a manual save confirmation
+        console.log('Data saved to localStorage');
+      }
+      
+      
+      // Toggle sidebars (Ctrl/Cmd + [ or ])
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        e.preventDefault();
+        setRightSidebarOpen(!isRightSidebarOpen);
+      }
+      
+      // Show keyboard shortcuts help (? or Ctrl/Cmd + /)
+      if (e.key === '?' || ((e.ctrlKey || e.metaKey) && e.key === '/')) {
+        e.preventDefault();
+        setShowHelpModal(true);
+      }
 
       // Select all fields (Ctrl/Cmd + A)
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
@@ -146,22 +242,15 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
       }
 
-      // Escape to deselect
-      if (e.key === 'Escape') {
-        selectUnifiedField(null);
-      }
-
-      // Tab through fields (simplified without page context)
-      if (e.key === 'Tab') {
-        if (unifiedFields.length > 0) {
-          e.preventDefault();
-          const currentIndex = unifiedFields.findIndex(f => f.id === selectedUnifiedFieldId);
-          const nextIndex = e.shiftKey 
-            ? (currentIndex - 1 + unifiedFields.length) % unifiedFields.length
-            : (currentIndex + 1) % unifiedFields.length;
-          selectUnifiedField(unifiedFields[nextIndex].id);
+      // Escape to deselect field or cancel position picker
+      if (e.key === 'Escape' && !(e.ctrlKey || e.metaKey)) {
+        if (isPickingPosition) {
+          cancelPicking();
+        } else if (selectedUnifiedFieldId) {
+          deselectUnifiedField();
         }
       }
+
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -173,6 +262,19 @@ export function useKeyboardShortcuts() {
     deleteUnifiedField, 
     duplicateUnifiedField, 
     selectUnifiedField,
-    addUnifiedField
+    addUnifiedField,
+    deselectUnifiedField,
+    gridEnabled,
+    setGridEnabled,
+    setShowGrid,
+    currentPage,
+    totalPages,
+    setCurrentPage,
+    isPickingPosition,
+    cancelPicking,
+    isRightSidebarOpen,
+    setRightSidebarOpen
   ]);
+  
+  return { showHelpModal, setShowHelpModal, previewMode, setPreviewMode };
 }
