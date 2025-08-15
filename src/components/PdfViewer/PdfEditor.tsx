@@ -173,7 +173,7 @@ export function PdfEditor() {
       
       <div 
         ref={containerRef}
-        className="relative w-full h-full overflow-auto bg-muted/30 transition-colors"
+        className="relative w-full h-full bg-muted/30 transition-colors"
       >
         <div
           style={{

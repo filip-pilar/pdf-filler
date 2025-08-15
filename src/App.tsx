@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { FieldToolbox } from '@/components/AppSidebar/FieldToolbox';
 import { PdfEditor } from '@/components/PdfViewer/PdfEditor';
 import { DropzoneArea } from '@/components/PdfViewer/DropzoneArea';
-import { FieldQueueSidebar } from '@/components/RightSidebar/FieldQueueSidebar';
+import { QueueSidebar } from '@/components/RightSidebar/QueueSidebar';
 import { useFieldStore } from '@/store/fieldStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
@@ -26,19 +26,17 @@ function App() {
     }
   }, [pdfFile]);
   
-  // Initialize right sidebar state from store
-  useEffect(() => {
-    // Right sidebar state is managed in the store
-  }, []);
-  
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex h-screen w-full">
-        {/* Left Sidebar with main content */}
+        {/* Main Layout with Both Sidebars */}
         <SidebarProvider open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
+          {/* Left Sidebar */}
           <FieldToolbox />
-          <SidebarInset>
-            <div className="flex flex-1 flex-col">
+          
+          {/* Main Content Area */}
+          <SidebarInset className={`flex-1 transition-all duration-300 ${isRightSidebarOpen ? 'mr-80' : ''}`}>
+            <div className="flex flex-1 flex-col h-full">
               {/* Header */}
               <header className="flex h-16 shrink-0 items-center border-b bg-background">
                 <div className="flex w-full items-center gap-2 px-4">
@@ -48,24 +46,21 @@ function App() {
                 </div>
               </header>
               
-              {/* Main content area with right sidebar */}
-              <div className="flex flex-1 h-[calc(100vh-6rem)]">
-                {/* Main PDF Editor Area */}
-                <main className="flex-1">
-                  {pdfFile ? (
-                    <PdfEditor />
-                  ) : (
-                    <div className="w-full h-full p-4">
-                      <DropzoneArea />
-                    </div>
-                  )}
-                </main>
-                
-                {/* Right Sidebar (Queue) */}
-                <FieldQueueSidebar isOpen={isRightSidebarOpen} />
-              </div>
+              {/* Main PDF Editor Area */}
+              <main className="flex-1 overflow-auto">
+                {pdfFile ? (
+                  <PdfEditor />
+                ) : (
+                  <div className="w-full h-full p-4">
+                    <DropzoneArea />
+                  </div>
+                )}
+              </main>
             </div>
           </SidebarInset>
+          
+          {/* Right Sidebar (Queue) - Outside of SidebarInset */}
+          <QueueSidebar />
         </SidebarProvider>
       </div>
       <StatusBar />

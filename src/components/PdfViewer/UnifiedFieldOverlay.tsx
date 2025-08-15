@@ -22,9 +22,9 @@ export function UnifiedFieldOverlay({
   onFieldDoubleClick,
 }: UnifiedFieldOverlayProps) {
   const { selectUnifiedField } = useFieldStore();
-  // Filter fields for current page and enabled status
+  // Filter fields for current page, enabled status, and having a position (not data-only)
   const currentPageFields = fields.filter(
-    field => field.page === currentPage && field.enabled
+    field => field.page === currentPage && field.enabled && field.position
   );
 
   return (

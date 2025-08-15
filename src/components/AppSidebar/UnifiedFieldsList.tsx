@@ -14,7 +14,8 @@ import {
   Plus,
   Braces,
   Lock,
-  LockOpen
+  LockOpen,
+  Database
 } from 'lucide-react';
 import {
   Collapsible,
@@ -32,6 +33,7 @@ import {
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { CompositeFieldDialog } from '@/components/CompositeFieldDialog';
+import { DataFieldDialog } from '@/components/DataFieldDialog';
 import { cn } from '@/lib/utils';
 
 interface UnifiedFieldsListProps {
@@ -46,6 +48,7 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
   const [collapsedPages, setCollapsedPages] = useState<Set<number>>(new Set());
   const [showCompositeDialog, setShowCompositeDialog] = useState(false);
   const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
+  const [showDataFieldDialog, setShowDataFieldDialog] = useState(false);
 
   // Group fields by page number
   const fieldsByPage = enabledFields.reduce((acc, field) => {
@@ -65,6 +68,9 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
 
   // Get icon for field type/variant
   const getFieldIcon = (field: UnifiedField) => {
+    // For data-only fields (no position)
+    if (!field.position) return Database;
+    
     // For composite fields
     if (field.type === 'composite-text') return Braces;
     
@@ -123,16 +129,28 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center justify-between">
         <span>Fields ({enabledFields.length})</span>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-6 px-2 py-0 text-xs gap-1"
-          onClick={() => setShowCompositeDialog(true)}
-          title="Create Composite Field"
-        >
-          <Plus className="h-3 w-3" />
-          <span>Composite</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 py-0 text-xs gap-1"
+            onClick={() => setShowDataFieldDialog(true)}
+            title="Create Data-Only Field"
+          >
+            <Database className="h-3 w-3" />
+            <span>Data</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 py-0 text-xs gap-1"
+            onClick={() => setShowCompositeDialog(true)}
+            title="Create Composite Field"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Composite</span>
+          </Button>
+        </div>
       </SidebarGroupLabel>
       
       <SidebarGroupContent>
@@ -189,6 +207,11 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
                                   <span className="text-xs font-mono truncate">
                                     {field.key}
                                   </span>
+                                  {!field.position && (
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3">
+                                      data
+                                    </Badge>
+                                  )}
                                   {field.locked && (
                                     <Lock className="h-3 w-3 text-muted-foreground" />
                                   )}
@@ -245,6 +268,11 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
           setShowCompositeDialog(false);
           setEditingCompositeField(undefined);
         }}
+      />
+      
+      <DataFieldDialog
+        isOpen={showDataFieldDialog}
+        onClose={() => setShowDataFieldDialog(false)}
       />
     </SidebarGroup>
   );

@@ -278,10 +278,11 @@ export const useFieldStore = create<FieldState>()(
     const field = get().unifiedFields.find(f => f.id === id);
     if (!field) return;
     
-    const newPosition = {
+    // For data-only fields (no position), duplicate without position
+    const newPosition = field.position ? {
       x: Math.min(field.position.x + 20, 500),
       y: Math.min(field.position.y + 20, 700),
-    };
+    } : undefined;
     
     const duplicatedField = {
       ...field,

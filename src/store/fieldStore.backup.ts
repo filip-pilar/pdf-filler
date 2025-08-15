@@ -886,14 +886,14 @@ export const useFieldStore = create<FieldState>()(
       if (!field.positionVersion) {
         // Legacy field - convert from bottom-edge to top-edge
         const fieldHeight = field.size?.height || 30;
-        return {
+        return field.position ? {
           ...field,
           position: {
             ...field.position,
             y: field.position.y + fieldHeight // Convert to top edge
           },
           positionVersion: 'top-edge' as const
-        };
+        } : field;
       }
       return field;
     });
@@ -954,10 +954,10 @@ export const useFieldStore = create<FieldState>()(
         ...field,
         id: `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         key: generatedKey,
-        position: {
+        position: field.position ? {
           x: field.position.x + 20,
           y: field.position.y + 20
-        },
+        } : undefined,
         positionVersion: 'top-edge' // Ensure duplicated fields use top-edge
       };
       set((state) => ({
@@ -990,10 +990,10 @@ export const useFieldStore = create<FieldState>()(
       type: field.type,
       variant: 'single',
       page: field.page,
-      position: {
+      position: field.position ? {
         x: field.position.x,
         y: field.position.y + fieldHeight // Convert to top edge
-      },
+      } : undefined,
       size: field.size,
       enabled: true,
       structure: 'simple',

@@ -49,7 +49,7 @@ interface UnifiedField {
   type: 'text' | 'checkbox' | 'image' | 'signature' | 'logic' | 'composite-text';
   variant: 'single' | 'options';
   page: number;
-  position: { x: number; y: number };
+  position?: { x: number; y: number };  // Optional for data-only fields
   size?: { width: number; height: number };
   enabled: boolean;
   multiSelect?: boolean;
@@ -100,9 +100,15 @@ ${types}
  * This service fills PDF forms based on field configuration and data.
  * Fields are NOT hardcoded - they are passed as parameters.
  * 
+ * COMPOSITE FIELDS:
+ * - Composite fields combine multiple data fields using templates
+ * - You only need to pass the base data fields (e.g., firstName, lastName)
+ * - Composite values are computed automatically (e.g., fullName = "{firstName} {lastName}")
+ * - Data-only fields (no position) are used for computation but not rendered
+ * 
  * @param {ArrayBuffer} pdfBytes - The PDF file to fill
  * @param {UnifiedField[]} fields - Field configuration defining where to place data
- * @param {Record<string, any>} data - The data to fill into the fields
+ * @param {Record<string, any>} data - The data to fill into the fields (base fields only)
  * @returns {Promise<Uint8Array>} - The filled PDF as bytes
  */
 async function fillPDF(pdfBytes, fields, data) {
@@ -172,9 +178,21 @@ async function fillPDF(pdfBytes, fields, data) {
     return result;
   };
   
-  // Process each field
+  // First, compute all composite field values from base data
+  const computedData = { ...data };
+  
+  // Find all composite fields and compute their values
+  const compositeFields = fields.filter(f => f.type === 'composite-text' && f.template);
+  for (const field of compositeFields) {
+    // Only compute if not already provided in data
+    if (!(field.key in data)) {
+      computedData[field.key] = evaluateTemplate(field.template, computedData, field.compositeFormatting);
+    }
+  }
+  
+  // Process each field that has a position (skip data-only fields)
   for (const field of fields) {
-    if (!field.enabled) continue;
+    if (!field.enabled || !field.position) continue;
     
     const pageIndex = field.page - 1;
     if (pageIndex >= pages.length) continue;
@@ -182,13 +200,8 @@ async function fillPDF(pdfBytes, fields, data) {
     const page = pages[pageIndex];
     const { height: pageHeight } = page.getSize();
     
-    // Get the value for this field
-    let value;
-    if (field.type === 'composite-text' && field.template) {
-      value = evaluateTemplate(field.template, data, field.compositeFormatting);
-    } else {
-      value = data[field.key] ?? field.properties?.defaultValue;
-    }
+    // Get the value for this field from computed data
+    const value = computedData[field.key] ?? field.properties?.defaultValue;
     if (value === undefined || value === null || value === '') continue;
     
     // Convert position if needed (top-edge vs bottom-edge)

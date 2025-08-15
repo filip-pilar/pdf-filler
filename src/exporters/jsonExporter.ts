@@ -73,7 +73,13 @@ export function exportToJSON(
         optionMappings: field.optionMappings,
         properties: field.properties,
         positionVersion: field.positionVersion,
-        sampleValue: field.sampleValue
+        sampleValue: field.sampleValue,
+        // Include composite field metadata
+        template: field.template,
+        dependencies: field.dependencies,
+        compositeFormatting: field.compositeFormatting,
+        // Mark data-only fields
+        isDataOnly: !field.position
       }));
     
     const config = {

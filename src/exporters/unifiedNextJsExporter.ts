@@ -15,13 +15,19 @@ export function generateUnifiedNextJsApiRoute(sampleFields: UnifiedField[] = [])
  * This route accepts field configuration with each request,
  * allowing dynamic PDF filling without hardcoded fields.
  * 
+ * COMPOSITE FIELDS:
+ * - Composite fields combine multiple data fields using templates
+ * - You only need to pass the base data fields (e.g., firstName, lastName)
+ * - Composite values are computed automatically (e.g., fullName = "{firstName} {lastName}")
+ * - Data-only fields (no position) are used for computation but not rendered
+ * 
  * Installation:
  * 1. npm install pdf-lib
  * 2. Save this file as: app/api/fill-pdf/route.ts
  * 
  * Usage:
  * POST /api/fill-pdf
- * - Send PDF file, field configuration, and data
+ * - Send PDF file, field configuration, and data (base fields only)
  * - Receive filled PDF
  */
 
@@ -35,7 +41,7 @@ interface UnifiedField {
   type: 'text' | 'checkbox' | 'image' | 'signature' | 'logic' | 'composite-text';
   variant: 'single' | 'options';
   page: number;
-  position: { x: number; y: number };
+  position?: { x: number; y: number };  // Optional for data-only fields
   size?: { width: number; height: number };
   enabled: boolean;
   multiSelect?: boolean;
@@ -236,9 +242,21 @@ export async function POST(request: NextRequest) {
       return result;
     };
     
-    // Process each field
+    // First, compute all composite field values from base data
+    const computedData = { ...data };
+    
+    // Find all composite fields and compute their values
+    const compositeFields = fields.filter(f => f.type === 'composite-text' && f.template);
+    for (const field of compositeFields) {
+      // Only compute if not already provided in data
+      if (!(field.key in data)) {
+        computedData[field.key] = evaluateTemplate(field.template, computedData, field.compositeFormatting);
+      }
+    }
+    
+    // Process each field that has a position (skip data-only fields)
     for (const field of fields) {
-      if (!field.enabled) continue;
+      if (!field.enabled || !field.position) continue;
       
       const pageIndex = field.page - 1;
       if (pageIndex >= pages.length) {
@@ -249,13 +267,8 @@ export async function POST(request: NextRequest) {
       const page = pages[pageIndex];
       const { height: pageHeight } = page.getSize();
       
-      // Get value for this field
-      let value: any;
-      if (field.type === 'composite-text' && field.template) {
-        value = evaluateTemplate(field.template, data, field.compositeFormatting);
-      } else {
-        value = data[field.key] ?? field.properties?.defaultValue;
-      }
+      // Get value for this field from computed data
+      const value = computedData[field.key] ?? field.properties?.defaultValue;
       if (value === undefined || value === null || value === '') continue;
       
       // Convert position (handle top-edge vs bottom-edge)
@@ -480,6 +493,9 @@ function generateSampleData(fields: UnifiedField[]): Record<string, any> {
   
   for (const field of fields) {
     if (!field.enabled) continue;
+    
+    // Skip composite fields - they're computed from base fields
+    if (field.type === 'composite-text') continue;
     
     // Generate sample data based on field type and key
     const key = field.key;

@@ -178,6 +178,9 @@ async function renderSingleField(
   pdfDoc: PDFDocument,
   font: PDFFont
 ) {
+  // Skip fields without position (data-only fields)
+  if (!field.position) return;
+  
   const position = convertPosition(
     field.position, 
     field.size?.height || 30, 
@@ -347,10 +350,10 @@ async function renderSingleField(
           
           if (textAlign === 'center') {
             const lineWidth = font.widthOfTextAtSize(line, fontSize);
-            lineX = field.position.x + ((field.size?.width || 100) - lineWidth) / 2;
+            lineX = field.position!.x + ((field.size?.width || 100) - lineWidth) / 2;
           } else if (textAlign === 'right') {
             const lineWidth = font.widthOfTextAtSize(line, fontSize);
-            lineX = field.position.x + (field.size?.width || 100) - lineWidth - (padding.right || 2);
+            lineX = field.position!.x + (field.size?.width || 100) - lineWidth - (padding.right || 2);
           }
           
           page.drawText(line, {

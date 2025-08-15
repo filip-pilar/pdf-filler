@@ -72,7 +72,7 @@ export function useKeyboardShortcuts() {
       }
 
       // Move selected field with arrow keys (skip if field is locked)
-      if (selectedField && !selectedField.locked && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      if (selectedField && !selectedField.locked && selectedField.position && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         const moveAmount = e.altKey ? 10 : 1;
         let moved = false;
         const newPosition = { ...selectedField.position };

@@ -110,6 +110,9 @@ export function DraggableUnifiedField({
   // Handle coordinate system based on positionVersion
   // 'top-edge': y=0 is at top of PDF (no conversion needed)
   // Legacy/undefined: y=0 is at bottom of PDF (needs conversion)
+  // Position is guaranteed to exist since we filter out fields without positions in UnifiedFieldOverlay
+  if (!field.position) return null;
+  
   const screenY = field.positionVersion === 'top-edge' 
     ? field.position.y 
     : pageHeight - field.position.y;

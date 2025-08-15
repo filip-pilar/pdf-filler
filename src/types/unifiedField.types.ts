@@ -47,11 +47,15 @@ export interface UnifiedField {
   /** Variant determines how arrays/multiple values are handled */
   variant: FieldVariant;
   
-  /** PDF page number (1-based) */
+  /** PDF page number (1-based) - required even for data-only fields for organization */
   page: number;
   
-  /** Position on the PDF page */
-  position: {
+  /** 
+   * Position on the PDF page 
+   * Optional for data-only fields that don't render on the PDF
+   * Required for fields that need visual placement
+   */
+  position?: {
     x: number;
     y: number;
   };
@@ -201,7 +205,7 @@ export interface UnifiedFieldExport {
   type: FieldType | 'logic';
   variant: FieldVariant;
   page: number;
-  position: { x: number; y: number };
+  position?: { x: number; y: number };
   size?: { width: number; height: number };
   placementCount: number;
   options?: string[];
