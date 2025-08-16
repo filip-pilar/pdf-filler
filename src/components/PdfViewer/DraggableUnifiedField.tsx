@@ -142,8 +142,14 @@ export function DraggableUnifiedField({
     }
     
     if (field.type === 'composite-text') {
-      // Show the template for composite fields
-      return field.template || `{${field.key}}`;
+      // Show evaluated preview for composite fields if possible
+      if (field.sampleValue) {
+        const strValue = String(field.sampleValue);
+        return strValue.length > 30 ? strValue.substring(0, 30) + '...' : strValue;
+      }
+      // Otherwise show the template
+      const template = field.template || `{${field.key}}`;
+      return template.length > 30 ? template.substring(0, 30) + '...' : template;
     }
     
     if (field.type === 'checkbox') {

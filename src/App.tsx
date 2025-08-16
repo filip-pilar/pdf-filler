@@ -64,7 +64,7 @@ function App() {
               {/* Main PDF Editor Area - Scrollable */}
               <main className="flex-1 overflow-auto">
                 {pdfFile ? (
-                  <PdfEditor leftSidebarOpen={leftSidebarOpen} />
+                  <PdfEditor />
                 ) : (
                   <div className="w-full h-full p-4">
                     <DropzoneArea />

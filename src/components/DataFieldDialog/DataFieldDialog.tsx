@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,32 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
   
   const [fieldKey, setFieldKey] = useState('');
   const [fieldType, setFieldType] = useState<FieldType>('text');
+  const [sampleValue, setSampleValue] = useState('');
   const [error, setError] = useState('');
+  
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Enter to save (when not in select dropdown)
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const target = e.target as HTMLElement;
+        // Don't submit if focus is on select trigger or inside select content
+        if (!target.closest('[role="combobox"]') && !target.closest('[role="listbox"]')) {
+          e.preventDefault();
+          if (fieldKey && !error) {
+            handleSave();
+          }
+        }
+      }
+      // Escape to cancel (handled by Dialog component)
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, fieldKey, error]);
   
   const handleKeyChange = (value: string) => {
     // Clean the key - allow alphanumeric, underscore, hyphen, and dot for nested paths
@@ -45,6 +70,16 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
       return;
     }
     
+    // Generate default sample value if not provided
+    const finalSampleValue = sampleValue || (() => {
+      switch (fieldType) {
+        case 'checkbox': return true;
+        case 'image': return '';
+        case 'signature': return '';
+        default: return `Sample ${fieldKey}`;
+      }
+    })();
+    
     // Create a data-only field (no position)
     addUnifiedField({
       key: fieldKey,
@@ -55,6 +90,7 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
       // No position - this makes it a data-only field
       enabled: true,
       placementCount: 0, // No placement needed
+      sampleValue: finalSampleValue,
       properties: {
         fontSize: fieldType === 'text' ? 12 : undefined,
         checkboxSize: fieldType === 'checkbox' ? 20 : undefined,
@@ -64,6 +100,7 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
     // Reset and close
     setFieldKey('');
     setFieldType('text');
+    setSampleValue('');
     setError('');
     onClose();
   };
@@ -71,6 +108,7 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
   const handleCancel = () => {
     setFieldKey('');
     setFieldType('text');
+    setSampleValue('');
     setError('');
     onClose();
   };
@@ -83,6 +121,9 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
             <Database className="h-5 w-5" />
             Create Data-Only Field
           </DialogTitle>
+          <DialogDescription>
+            Create fields that exist in the data model but don't appear on the PDF
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
@@ -102,6 +143,7 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
               onChange={(e) => handleKeyChange(e.target.value)}
               placeholder="e.g., firstName, user.email"
               className={error ? 'border-red-500' : ''}
+              autoFocus
             />
             {error && (
               <p className="text-sm text-red-500">{error}</p>
@@ -126,6 +168,19 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
             </Select>
             <p className="text-xs text-muted-foreground">
               The type affects how the field is handled in composite templates
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="sample-value">Sample Value (for previews)</Label>
+            <Input
+              id="sample-value"
+              value={sampleValue}
+              onChange={(e) => setSampleValue(e.target.value)}
+              placeholder={fieldType === 'checkbox' ? 'true/false' : `e.g., John Doe`}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used in composite field previews and PDF exports. Leave empty for default.
             </p>
           </div>
         </div>

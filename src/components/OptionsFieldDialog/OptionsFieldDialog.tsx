@@ -370,7 +370,10 @@ export function OptionsFieldDialog({
         : { width: 100, height: 30 },
       structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
       enabled: true,
-      placementCount: optionMappings.length
+      placementCount: optionMappings.length,
+      positionVersion: 'top-edge' as const,
+      // Set sample value to all option keys so they all render in preview
+      sampleValue: optionMappings.map(m => m.key)
     };
     
     let fieldId = editingFieldId;
@@ -446,16 +449,17 @@ export function OptionsFieldDialog({
       if (placementStateRef.editingFieldId) {
         const updatedFieldData = {
           position: position,
+          renderType: placementStateRef?.renderType,
           optionMappings: placementStateRef?.optionMappings.map(m => ({
             key: m.key,
             position: m.position!,
-            renderType: placementStateRef?.renderType,
             customText: placementStateRef?.renderType === 'custom' ? m.customText : undefined,
-            sampleValue: placementStateRef?.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
             size: placementStateRef?.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
-          }))
+          })),
+          // Update sample value to all option keys
+          sampleValue: placementStateRef?.optionMappings.map(m => m.key)
         };
         updateUnifiedField(placementStateRef?.editingFieldId!, updatedFieldData);
       }
@@ -479,16 +483,17 @@ export function OptionsFieldDialog({
       if (placementStateRef?.editingFieldId) {
         const updatedFieldData = {
           position: placementStateRef?.optionMappings[0].position || position, // Use first option position as field position
+          renderType: placementStateRef?.renderType,
           optionMappings: placementStateRef?.optionMappings.map(m => ({
             key: m.key,
             position: m.position || { x: 100, y: 100 },
-            renderType: placementStateRef?.renderType,
             customText: placementStateRef?.renderType === 'custom' ? m.customText : undefined,
-            sampleValue: placementStateRef?.renderType === 'text' ? (m.sampleValue || m.key) : undefined,
             size: placementStateRef?.renderType === 'checkmark' 
               ? { width: 25, height: 25 }
               : { width: 100, height: 30 }
-          }))
+          })),
+          // Update sample value to all option keys
+          sampleValue: placementStateRef?.optionMappings.map(m => m.key)
         };
         updateUnifiedField(placementStateRef.editingFieldId, updatedFieldData);
       }
@@ -631,7 +636,10 @@ export function OptionsFieldDialog({
           : { width: 100, height: 30 },
         structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
         enabled: true,
-        placementCount: optionMappings.length
+        placementCount: optionMappings.length,
+        positionVersion: 'top-edge' as const,
+        // Set sample value to all option keys so they all render in preview
+        sampleValue: optionMappings.map(m => m.key)
       };
       
       updateUnifiedField(fieldId, fieldData);
@@ -662,7 +670,10 @@ export function OptionsFieldDialog({
           : { width: 100, height: 30 },
         structure: (placementMode === 'combined' ? 'array' : 'simple') as 'array' | 'simple',
         enabled: true,
-        placementCount: optionMappings.length
+        placementCount: optionMappings.length,
+        positionVersion: 'top-edge' as const,
+        // Set sample value to all option keys so they all render in preview
+        sampleValue: optionMappings.map(m => m.key)
       };
       
       addUnifiedField(fieldData);
@@ -738,6 +749,7 @@ export function OptionsFieldDialog({
                 }}
                 placeholder="e.g., options_1"
                 className={cn("font-mono", fieldKeyError && "border-destructive")}
+                autoFocus
               />
               {fieldKeyError && (
                 <p className="text-xs text-destructive mt-1">{fieldKeyError}</p>

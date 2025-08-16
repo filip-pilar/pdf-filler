@@ -51,7 +51,7 @@ export function UnifiedFieldOverlay({
                   sampleValue: field.renderType === 'custom' 
                     ? mapping.customText 
                     : field.renderType === 'text' 
-                      ? field.sampleValue 
+                      ? mapping.key 
                       : undefined
                 }}
                 scale={scale}

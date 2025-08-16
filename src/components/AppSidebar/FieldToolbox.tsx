@@ -5,6 +5,7 @@ import { UnifiedFieldsList } from './UnifiedFieldsList';
 import { ClickToOpenFields } from './ClickToOpenFields';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
+import { CompositeFieldDialog } from '@/components/CompositeFieldDialog/CompositeFieldDialog';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import {
   Sidebar,
@@ -19,6 +20,8 @@ export function FieldToolbox() {
   const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | undefined>();
   const [showUnifiedFieldConfig, setShowUnifiedFieldConfig] = useState(false);
   const [unifiedFieldForConfig, setUnifiedFieldForConfig] = useState<UnifiedField | null>(null);
+  const [showCompositeFieldDialog, setShowCompositeFieldDialog] = useState(false);
+  const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
 
   const handleAddOptionsField = () => {
     setEditingOptionsFieldId(undefined);
@@ -31,6 +34,10 @@ export function FieldToolbox() {
       if (field.variant === 'options') {
         setEditingOptionsFieldId(fieldId);
         setShowOptionsFieldDialog(true);
+      } else if (field.type === 'composite-text') {
+        // Open composite field dialog for composite fields
+        setEditingCompositeField(field);
+        setShowCompositeFieldDialog(true);
       } else {
         // Open field config dialog for regular fields
         setUnifiedFieldForConfig(field);
@@ -80,6 +87,15 @@ export function FieldToolbox() {
         open={showUnifiedFieldConfig}
         onOpenChange={setShowUnifiedFieldConfig}
         isNew={false}
+      />
+      
+      <CompositeFieldDialog
+        isOpen={showCompositeFieldDialog}
+        onClose={() => {
+          setShowCompositeFieldDialog(false);
+          setEditingCompositeField(undefined);
+        }}
+        editingField={editingCompositeField}
       />
     </>
   );

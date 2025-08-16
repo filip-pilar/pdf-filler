@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,23 +35,39 @@ export function CompositeFieldDialog({
     unifiedFields // Subscribe to fields changes
   } = useFieldStore();
   
-  const [fieldKey, setFieldKey] = useState(editingField?.key || '');
-  const [template, setTemplate] = useState(editingField?.template || '');
-  const [emptyBehavior, setEmptyBehavior] = useState<'skip' | 'show-empty' | 'placeholder'>(
-    editingField?.compositeFormatting?.emptyValueBehavior || 'skip'
-  );
-  const [separatorHandling, setSeparatorHandling] = useState<'smart' | 'literal'>(
-    editingField?.compositeFormatting?.separatorHandling || 'smart'
-  );
+  const [fieldKey, setFieldKey] = useState('');
+  const [template, setTemplate] = useState('');
+  const [emptyBehavior, setEmptyBehavior] = useState<'skip' | 'show-empty' | 'placeholder'>('skip');
+  const [separatorHandling, setSeparatorHandling] = useState<'smart' | 'literal'>('smart');
   const [sampleData, setSampleData] = useState<string>('{}');
+  const [showFieldBreakdown] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+  const templateTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Reset form when dialog opens/closes or editingField changes
+  useEffect(() => {
+    if (isOpen) {
+      if (editingField) {
+        // Editing existing field
+        setFieldKey(editingField.key || '');
+        setTemplate(editingField.template || '');
+        setEmptyBehavior(editingField.compositeFormatting?.emptyValueBehavior || 'skip');
+        setSeparatorHandling(editingField.compositeFormatting?.separatorHandling || 'smart');
+      } else {
+        // Creating new field - reset everything
+        setFieldKey('');
+        setTemplate('');
+        setEmptyBehavior('skip');
+        setSeparatorHandling('smart');
+      }
+      setSampleData('{}');
+      setShowPreview(false);
+    }
+  }, [isOpen, editingField]);
   
   const availableFields = useMemo(() => {
-    const fields = getAvailableFieldKeys();
-    console.log('Available fields for composite:', fields);
-    console.log('Total unified fields:', unifiedFields.length);
-    return fields;
-  }, [getAvailableFieldKeys, unifiedFields]);
+    return getAvailableFieldKeys();
+  }, [getAvailableFieldKeys]);
   
   const validation = useMemo(() => {
     if (!template) return { isValid: true, dependencies: [], errors: [] };
@@ -77,21 +93,65 @@ export function CompositeFieldDialog({
   }, [availableFields]);
   
   useEffect(() => {
-    // Create sample data from available fields
-    if (validation.dependencies.length > 0 && sampleData === '{}') {
-      const sample: Record<string, string | Record<string, string>> = {};
-      validation.dependencies.forEach(dep => {
-        if (dep.includes('.')) {
-          const [parent, child] = dep.split('.');
-          if (!sample[parent]) sample[parent] = {} as Record<string, string>;
-          (sample[parent] as Record<string, string>)[child] = `Sample ${child}`;
-        } else {
-          sample[dep] = `Sample ${dep}`;
-        }
-      });
-      setSampleData(JSON.stringify(sample, null, 2));
+    // Create sample data from ALL available fields with actual sample values
+    // Only update if sample data is still the default or if dependencies changed
+    try {
+      const currentData = JSON.parse(sampleData);
+      const isDefault = Object.keys(currentData).length === 0;
+      if (!isDefault) return; // User has modified the sample data, don't overwrite
+    } catch {
+      // Invalid JSON, proceed with update
     }
-  }, [validation.dependencies, sampleData]);
+    
+    const sample: Record<string, string | Record<string, string>> = {};
+    
+    // Generate sample data for ALL available fields, not just dependencies
+    availableFields.forEach(fieldKey => {
+      // Check if this is an option field reference (fieldKey.optionKey)
+      if (fieldKey.includes('.')) {
+        const [baseFieldKey, optionKey] = fieldKey.split('.');
+        const field = unifiedFields.find(f => f.key === baseFieldKey);
+        
+        if (field?.variant === 'options') {
+          // For options fields, use the option key as the value
+          sample[fieldKey] = optionKey;
+        } else {
+          // For nested regular fields
+          if (!sample[baseFieldKey]) sample[baseFieldKey] = {} as Record<string, string>;
+          (sample[baseFieldKey] as Record<string, string>)[optionKey] = field?.sampleValue || `Sample ${optionKey}`;
+        }
+      } else {
+        const field = unifiedFields.find(f => f.key === fieldKey);
+        const fieldValue = field?.sampleValue;
+        // Handle different types of sample values
+        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+          sample[fieldKey] = String(fieldValue);
+        } else {
+          sample[fieldKey] = `Sample ${fieldKey}`;
+        }
+      }
+    });
+    setSampleData(JSON.stringify(sample, null, 2));
+  }, [availableFields, sampleData, unifiedFields]);
+  
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Enter to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (validation.isValid && fieldKey) {
+          handleSave();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, validation.isValid, fieldKey]);
   
   const handleSave = () => {
     if (!validation.isValid || !fieldKey) return;
@@ -113,12 +173,19 @@ export function CompositeFieldDialog({
         });
       }
     } else {
-      // Create new field - will be placed later
+      // Create new field without position - will be placed via position picker
       const newField = createCompositeField(
         template,
-        { x: 100, y: 100 }, // Default position, will be updated when placed
+        undefined, // No position yet - will be set via position picker
         currentPage
       );
+      // Override the key with the user-provided one
+      newField.key = fieldKey;
+      newField.compositeFormatting = {
+        emptyValueBehavior: emptyBehavior,
+        separatorHandling: separatorHandling,
+        whitespaceHandling: 'normalize'
+      };
       if (onSave) onSave(newField);
     }
     
@@ -134,13 +201,24 @@ export function CompositeFieldDialog({
     return value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
   };
   
+  const handleClose = () => {
+    // Auto-save if editing existing field and template has changed
+    if (editingField && template && template !== editingField.template) {
+      updateCompositeTemplate(editingField.id, template);
+    }
+    onClose();
+  };
+  
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingField ? 'Edit Composite Field' : 'Create Composite Field'}
           </DialogTitle>
+          <DialogDescription>
+            Combine multiple fields into a single output using a template
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -152,6 +230,7 @@ export function CompositeFieldDialog({
               value={fieldKey}
               onChange={(e) => setFieldKey(cleanFieldKey(e.target.value))}
               placeholder="e.g., full_name, complete_address"
+              autoFocus
             />
             <p className="text-xs text-muted-foreground">
               This key will be used to reference the composite field
@@ -162,6 +241,7 @@ export function CompositeFieldDialog({
           <div className="space-y-2">
             <Label htmlFor="template">Template</Label>
             <Textarea
+              ref={templateTextareaRef}
               id="template"
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
@@ -201,7 +281,17 @@ export function CompositeFieldDialog({
                   key={field}
                   variant="secondary"
                   className="cursor-pointer"
-                  onClick={() => setTemplate(template + `{${field}}`)}
+                  onClick={() => {
+                    const newTemplate = template + `{${field}}`;
+                    setTemplate(newTemplate);
+                    // Focus back on textarea and move cursor to end
+                    setTimeout(() => {
+                      if (templateTextareaRef.current) {
+                        templateTextareaRef.current.focus();
+                        templateTextareaRef.current.setSelectionRange(newTemplate.length, newTemplate.length);
+                      }
+                    }, 0);
+                  }}
                 >
                   {field}
                 </Badge>
@@ -290,12 +380,46 @@ export function CompositeFieldDialog({
                     onChange={(e) => setSampleData(e.target.value)}
                     rows={4}
                     placeholder='{"firstName": "John", "lastName": "Doe"}'
+                    className="font-mono text-sm"
                   />
                 </div>
                 
-                <div className="p-3 bg-muted rounded">
-                  <p className="text-sm font-medium mb-1">Result:</p>
-                  <p className="font-mono">{preview || '(empty)'}</p>
+                {/* Field breakdown */}
+                {showFieldBreakdown && validation.dependencies.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded space-y-2">
+                    <p className="text-sm font-medium">Field Values:</p>
+                    <div className="space-y-1">
+                      {validation.dependencies.map(dep => {
+                        try {
+                          const data = JSON.parse(sampleData) as Record<string, any>;
+                          let value = data[dep];
+                          if (dep.includes('.')) {
+                            const parts = dep.split('.');
+                            value = parts.reduce((obj, key) => obj?.[key], data);
+                          }
+                          return (
+                            <div key={dep} className="flex items-center gap-2 text-sm">
+                              <Badge variant="outline" className="font-mono">{dep}</Badge>
+                              <span className="text-muted-foreground">→</span>
+                              <span className="font-mono">{String(value || '(empty)')}</span>
+                            </div>
+                          );
+                        } catch {
+                          return null;
+                        }
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded">
+                  <p className="text-sm font-medium mb-2">Composite Result:</p>
+                  <div className="font-mono text-lg bg-background p-2 rounded border">
+                    {preview || '(empty)'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Estimated length: {preview?.length || 0} characters
+                  </p>
                 </div>
               </>
             )}
@@ -303,15 +427,22 @@ export function CompositeFieldDialog({
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!validation.isValid || !fieldKey}
-          >
-            {editingField ? 'Update' : 'Create'} Field
-          </Button>
+          <div className="flex items-center justify-between w-full">
+            <p className="text-xs text-muted-foreground">
+              Press <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Ctrl</kbd>+<kbd className="px-1 py-0.5 text-xs bg-muted rounded">Enter</kbd> to save
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave}
+                disabled={!validation.isValid || !fieldKey || !template.trim()}
+              >
+                {editingField ? 'Update' : 'Create'} Field
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -35,11 +35,13 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
       for (const field of unifiedFields) {
         if (!field.enabled) continue;
         
+        // Skip composite fields - they will be computed from their dependencies
+        if (field.type === 'composite-text') continue;
+        
         if (field.variant === 'options' && field.optionMappings && field.optionMappings.length > 0) {
-          // For options fields, select the first option(s)
-          values[field.key] = field.multiSelect 
-            ? [field.optionMappings[0].key]
-            : field.optionMappings[0].key;
+          // For options fields, select all options for preview (to show all checkmarks)
+          // This allows users to see where all options will appear
+          values[field.key] = field.optionMappings.map(m => m.key);
         } else {
           // Use sample value or generate based on type
           if (field.sampleValue !== undefined) {
@@ -129,8 +131,9 @@ export function PdfExportTab({ pdfUrl, pdfFileName, unifiedFields = [] }: PdfExp
     } catch (error) {
       // Don't show error if it was an abort
       const err = error as Error;
-      if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
-        console.log('PDF export was canceled');
+      if (err?.name === 'AbortError' || err?.message?.includes('abort') || err?.message?.includes('Canceled')) {
+        // Silently ignore abort errors
+        return;
       } else {
         console.error('Failed to generate PDF preview:', error);
         toast.error('Failed to generate PDF preview. Please try again.');

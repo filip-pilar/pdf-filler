@@ -97,9 +97,8 @@ async function renderOptionsField(
   if (!field.optionMappings) return;
   
   // Handle multi-select vs single-select
-  const selectedValues = field.multiSelect 
-    ? (Array.isArray(value) ? value : [value])
-    : [value];
+  // Always treat as array for options fields since we want to show all selected
+  const selectedValues = Array.isArray(value) ? value : [value];
   
   for (const mapping of field.optionMappings) {
     if (selectedValues.includes(mapping.key)) {
@@ -107,22 +106,12 @@ async function renderOptionsField(
       
       switch (field.renderType) {
         case 'checkmark': {
-          // Draw a small checkbox with X mark
+          // Draw only X mark (no border - PDF has its own checkbox)
           const checkSize = mapping.size?.height || 16;
           const boxX = position.x;
           const boxY = position.y;
           
-          // Draw checkbox border
-          page.drawRectangle({
-            x: boxX,
-            y: boxY,
-            width: checkSize,
-            height: checkSize,
-            borderColor: rgb(0, 0, 0),
-            borderWidth: 1,
-          });
-          
-          // Draw X mark inside
+          // Draw X mark
           const padding = checkSize * 0.2;
           const lineWidth = 1.5;
           
@@ -144,22 +133,33 @@ async function renderOptionsField(
           break;
         }
           
-        case 'text':
+        case 'text': {
+          // Center text vertically like regular text fields
+          const fontSize = field.properties?.fontSize || 10;
+          const fieldHeight = mapping.size?.height || 30;
+          const textY = position.y + (fieldHeight - fontSize) / 2;
+          
           page.drawText(mapping.key, {
             x: position.x,
-            y: position.y,
-            size: field.properties?.fontSize || 10,
+            y: textY,
+            size: fontSize,
             font,
             color: getColor(field.properties?.textColor),
           });
           break;
+        }
           
         case 'custom':
           if (mapping.customText) {
+            // Center text vertically like regular text fields
+            const fontSize = field.properties?.fontSize || 10;
+            const fieldHeight = mapping.size?.height || 30;
+            const textY = position.y + (fieldHeight - fontSize) / 2;
+            
             page.drawText(mapping.customText, {
               x: position.x,
-              y: position.y,
-              size: field.properties?.fontSize || 10,
+              y: textY,
+              size: fontSize,
               font,
               color: getColor(field.properties?.textColor),
             });
@@ -195,17 +195,7 @@ async function renderSingleField(
         const boxX = field.position.x;
         const boxY = position.y;
         
-        // Draw checkbox border
-        page.drawRectangle({
-          x: boxX,
-          y: boxY,
-          width: checkSize,
-          height: checkSize,
-          borderColor: rgb(0, 0, 0),
-          borderWidth: 1,
-        });
-        
-        // Draw X mark inside the box
+        // Draw only X mark (no border - PDF has its own checkbox)
         const padding = checkSize * 0.2;
         const lineWidth = 2;
         
@@ -312,9 +302,13 @@ async function renderSingleField(
           textWidth = font.widthOfTextAtSize(text, adjustedFontSize);
         }
         
+        // Center text vertically in field
+        const fieldHeight = field.size?.height || 30;
+        const textY = position.y + (fieldHeight - adjustedFontSize) / 2;
+        
         page.drawText(text, {
           x: textX,
-          y: position.y + (padding.bottom || 2),
+          y: textY,
           size: adjustedFontSize,
           font,
           color: getColor(field.properties?.textColor),
@@ -342,8 +336,11 @@ async function renderSingleField(
         
         // Draw each line
         const lineHeight = fontSize * (field.properties?.lineHeight || 1.2);
-        // const totalHeight = lines.length * lineHeight;
-        const startY = position.y + (field.size?.height || 30) - (padding.top || 2) - fontSize;
+        // Position text at vertical center of field instead of top
+        const totalTextHeight = lines.length * lineHeight;
+        const fieldHeight = field.size?.height || 30;
+        const verticalPadding = (fieldHeight - totalTextHeight) / 2;
+        const startY = position.y + fieldHeight - verticalPadding - fontSize;
         
         lines.forEach((line, index) => {
           let lineX = textX;

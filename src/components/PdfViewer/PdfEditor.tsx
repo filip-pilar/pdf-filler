@@ -9,6 +9,7 @@ import { GridOverlay } from './GridOverlay';
 import { UnifiedFieldOverlay } from './UnifiedFieldOverlay';
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
+import { CompositeFieldDialog } from '@/components/CompositeFieldDialog/CompositeFieldDialog';
 import { PositionPickerOverlay } from '@/components/PositionPicker/PositionPickerOverlay';
 import { PdfDropTarget } from './PdfDropTarget';
 import type { FieldType } from '@/types/field.types';
@@ -20,12 +21,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-
-interface PdfEditorProps {
-  leftSidebarOpen?: boolean;
-}
-
-export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
+export function PdfEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
   const [containerBounds, setContainerBounds] = useState({ left: 0, width: 0 });
@@ -49,6 +45,8 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
   const [isNewUnifiedField, setIsNewUnifiedField] = useState(false);
   const [showOptionsFieldDialog, setShowOptionsFieldDialog] = useState(false);
   const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | undefined>();
+  const [showCompositeFieldDialog, setShowCompositeFieldDialog] = useState(false);
+  const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
   
   const { 
     pdfUrl, 
@@ -59,8 +57,7 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
     unifiedFields,
     addUnifiedField,
     selectedUnifiedFieldId,
-    deselectUnifiedField,
-    isRightSidebarOpen
+    deselectUnifiedField
   } = useFieldStore();
   const { snapPosition } = useGridSnap();
   const { isPickingPosition, pickingActionType, confirmPosition } = usePositionPickerStore();
@@ -97,6 +94,9 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
     if (field.variant === 'options') {
       setEditingOptionsFieldId(field.id);
       setShowOptionsFieldDialog(true);
+    } else if (field.type === 'composite-text') {
+      setEditingCompositeField(field);
+      setShowCompositeFieldDialog(true);
     } else {
       setUnifiedFieldForConfig(field);
       setShowUnifiedFieldConfig(true);
@@ -125,14 +125,14 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
   };
 
 
-  const handleZoomIn = useCallback(() => setScale(prev => Math.min(prev + 0.25, 3)), []);
-  const handleZoomOut = useCallback(() => setScale(prev => Math.max(prev - 0.25, 0.5)), []);
+  const handleZoomIn = useCallback(() => setScale(prev => Math.min(prev + 0.25, 4)), []);
+  const handleZoomOut = useCallback(() => setScale(prev => Math.max(prev - 0.25, 0.25)), []);
   
   const handleFitToWidth = useCallback(() => {
     if (containerRef.current && naturalPageSize.width) {
       const containerWidth = containerRef.current.clientWidth - 64;
       const newScale = containerWidth / naturalPageSize.width;
-      setScale(Math.min(newScale, 2));
+      setScale(Math.min(newScale, 4));
     }
   }, [naturalPageSize.width]);
   
@@ -168,25 +168,8 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleFitToWidth, handleZoomIn, handleZoomOut]);
   
-  // Auto-adjust zoom when sidebars open/close
-  useEffect(() => {
-    // Small delay to let the layout settle after sidebar animation
-    const timer = setTimeout(() => {
-      if (containerRef.current && naturalPageSize.width) {
-        // Calculate available width
-        const containerWidth = containerRef.current.clientWidth - 64;
-        const currentWidth = naturalPageSize.width * scale;
-        
-        // Only auto-fit if content is wider than container or much narrower
-        if (currentWidth > containerWidth || currentWidth < containerWidth * 0.7) {
-          const newScale = containerWidth / naturalPageSize.width;
-          setScale(Math.min(Math.max(newScale, 0.5), 2));
-        }
-      }
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [isRightSidebarOpen, leftSidebarOpen, naturalPageSize.width, scale]);
+  // Remove auto-adjust zoom - let user control zoom regardless of sidebar state
+  // Horizontal scrolling will handle overflow when zoomed in
 
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -230,7 +213,7 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
       
       <div 
         ref={containerRef}
-        className="relative w-full h-full bg-muted/30 transition-colors"
+        className="relative w-full h-full bg-muted/30 transition-colors overflow-auto"
       >
         <div
           style={{
@@ -240,6 +223,8 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
             padding: '2rem',
             paddingTop: '5rem', // Extra padding for floating controls
             minHeight: '100%',
+            width: 'max-content',
+            minWidth: '100%',
           }}
         >
           {pdfUrl && (
@@ -362,6 +347,15 @@ export function PdfEditor({ leftSidebarOpen = false }: PdfEditorProps) {
         open={showOptionsFieldDialog}
         onOpenChange={setShowOptionsFieldDialog}
         editingFieldId={editingOptionsFieldId}
+      />
+      
+      <CompositeFieldDialog
+        isOpen={showCompositeFieldDialog}
+        onClose={() => {
+          setShowCompositeFieldDialog(false);
+          setEditingCompositeField(undefined);
+        }}
+        editingField={editingCompositeField}
       />
     </>
   );

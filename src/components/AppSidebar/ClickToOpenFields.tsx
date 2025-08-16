@@ -4,6 +4,9 @@ import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/componen
 import { useState } from 'react';
 import { CompositeFieldDialog } from '@/components/CompositeFieldDialog/CompositeFieldDialog';
 import { DataFieldDialog } from '@/components/DataFieldDialog/DataFieldDialog';
+import { usePositionPickerStore } from '@/store/positionPickerStore';
+import { useFieldStore } from '@/store/fieldStore';
+import type { UnifiedField } from '@/types/unifiedField.types';
 
 interface ClickToOpenFieldsProps {
   onAddOptionsField: () => void;
@@ -12,6 +15,37 @@ interface ClickToOpenFieldsProps {
 export function ClickToOpenFields({ onAddOptionsField }: ClickToOpenFieldsProps) {
   const [showCompositeDialog, setShowCompositeDialog] = useState(false);
   const [showDataFieldDialog, setShowDataFieldDialog] = useState(false);
+  const { startPicking } = usePositionPickerStore();
+  const { updateUnifiedField } = useFieldStore();
+  
+  const handleCompositeFieldSave = (field: UnifiedField) => {
+    // Close dialog
+    setShowCompositeDialog(false);
+    
+    // Only start position picking if the field has a template defined
+    if (field.template && field.template.trim()) {
+      // Start position picking for the composite field
+      startPicking({
+        actionId: `composite-field-${field.id}`,
+        content: field.sampleValue || field.template || 'Composite',
+        optionLabel: field.key,
+        actionType: 'text',
+        onComplete: (position) => {
+          // Update the field with the selected position
+          updateUnifiedField(field.id, {
+            position: position,
+            page: position.page,
+            positionVersion: 'top-edge'
+          });
+        },
+        onCancel: () => {
+          // Field is already created, just no position set
+          // Don't reopen dialog on cancel
+        }
+      });
+    }
+    // If no template, the field is created but not placed (user can place it later from the fields list)
+  };
   
   return (
     <>
@@ -58,6 +92,7 @@ export function ClickToOpenFields({ onAddOptionsField }: ClickToOpenFieldsProps)
       <CompositeFieldDialog
         isOpen={showCompositeDialog}
         onClose={() => setShowCompositeDialog(false)}
+        onSave={handleCompositeFieldSave}
       />
       
       <DataFieldDialog

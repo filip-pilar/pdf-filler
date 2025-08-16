@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, Image as ImageIcon } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useDropzone, type FileRejection } from 'react-dropzone';
+import { Upload, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
@@ -9,12 +9,39 @@ interface ImageUploadProps {
 }
 
 export function ImageUpload({ value, onChange }: ImageUploadProps) {
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const [error, setError] = useState<string>('');
+  
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+    // Clear any previous errors
+    setError('');
+    
+    // Handle rejected files
+    if (rejectedFiles.length > 0) {
+      const errors = rejectedFiles[0].errors;
+      
+      if (errors.some((e) => e.code === 'file-invalid-type')) {
+        setError(`File type not supported. Please upload a PNG or JPEG image.`);
+      } else {
+        setError(`Unable to upload file: ${errors[0]?.message || 'Unknown error'}`);
+      }
+      return;
+    }
+    
     const file = acceptedFiles[0];
     if (file) {
+      // Additional validation for file type
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!validTypes.includes(file.type)) {
+        setError('Only PNG and JPEG images are supported');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         onChange(e.target?.result as string);
+      };
+      reader.onerror = () => {
+        setError('Failed to read file');
       };
       reader.readAsDataURL(file);
     }
@@ -23,13 +50,16 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg']
     },
-    multiple: false
+    multiple: false,
+    maxSize: 10 * 1024 * 1024 // 10MB
   });
 
   const clearImage = () => {
     onChange('');
+    setError('');
   };
 
   return (
@@ -55,7 +85,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
               <>
                 <ImageIcon className="h-8 w-8 text-muted-foreground" />
                 <p className="text-sm font-medium">Drop image or click to browse</p>
-                <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
+                <p className="text-xs text-muted-foreground">PNG or JPEG only, up to 10MB</p>
               </>
             )}
           </div>
@@ -76,6 +106,12 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
           >
             Remove image
           </button>
+        </div>
+      )}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-destructive mt-2">
+          <AlertCircle className="h-4 w-4" />
+          <span>{error}</span>
         </div>
       )}
     </div>

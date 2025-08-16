@@ -63,7 +63,7 @@ interface FieldState {
   unlockUnifiedField: (id: string) => void;
   
   // Composite field operations
-  createCompositeField: (template: string, position: { x: number; y: number }, page: number) => UnifiedField;
+  createCompositeField: (template: string, position: { x: number; y: number } | undefined, page: number) => UnifiedField;
   updateCompositeTemplate: (id: string, template: string) => void;
   validateCompositeTemplate: (template: string) => { isValid: boolean; dependencies: string[]; errors: string[] };
   getCompositeFieldDependencies: (id: string) => string[];
@@ -324,30 +324,88 @@ export const useFieldStore = create<FieldState>()(
     const state = get();
     const dependencies = TemplateEngine.extractDependencies(template);
     
+    // Generate sample value for preview
+    const sampleData: Record<string, unknown> = {};
+    dependencies.forEach(dep => {
+      // Check if this is an option field reference (fieldKey.optionKey)
+      if (dep.includes('.')) {
+        const [fieldKey, optionKey] = dep.split('.');
+        const field = state.unifiedFields.find(f => f.key === fieldKey);
+        if (field?.variant === 'options') {
+          // For options fields, use the option key as the sample value
+          sampleData[dep] = optionKey;
+        } else {
+          // For nested regular fields
+          const field = state.unifiedFields.find(f => f.key === dep);
+          sampleData[dep] = field?.sampleValue || `Sample ${dep}`;
+        }
+      } else {
+        const field = state.unifiedFields.find(f => f.key === dep);
+        sampleData[dep] = field?.sampleValue || `Sample ${dep}`;
+      }
+    });
+    
+    const sampleValue = TemplateEngine.evaluate(template, sampleData, {
+      emptyValueBehavior: 'skip',
+      separatorHandling: 'smart',
+      whitespaceHandling: 'normalize'
+    });
+    
     const newField: Partial<UnifiedField> = {
       type: 'composite-text',
       variant: 'single',
       template,
       dependencies,
-      position,
+      position, // Can be undefined - will be set later via position picker
       page,
       size: { width: 200, height: 32 },
       enabled: true,
       structure: 'simple',
-      placementCount: 1,
+      placementCount: position ? 1 : 0, // 0 if not placed yet
+      sampleValue,
       compositeFormatting: {
         emptyValueBehavior: 'skip',
         separatorHandling: 'smart',
         whitespaceHandling: 'normalize'
-      }
+      },
+      positionVersion: position ? 'top-edge' : undefined
     };
     
     return state.addUnifiedField(newField);
   },
   
   updateCompositeTemplate: (id, template) => {
+    const state = get();
     const dependencies = TemplateEngine.extractDependencies(template);
-    get().updateUnifiedField(id, { template, dependencies });
+    
+    // Generate updated sample value
+    const sampleData: Record<string, unknown> = {};
+    dependencies.forEach(dep => {
+      // Check if this is an option field reference (fieldKey.optionKey)
+      if (dep.includes('.')) {
+        const [fieldKey, optionKey] = dep.split('.');
+        const field = state.unifiedFields.find(f => f.key === fieldKey);
+        if (field?.variant === 'options') {
+          // For options fields, use the option key as the sample value
+          sampleData[dep] = optionKey;
+        } else {
+          // For nested regular fields
+          const field = state.unifiedFields.find(f => f.key === dep);
+          sampleData[dep] = field?.sampleValue || `Sample ${dep}`;
+        }
+      } else {
+        const field = state.unifiedFields.find(f => f.key === dep);
+        sampleData[dep] = field?.sampleValue || `Sample ${dep}`;
+      }
+    });
+    
+    const sampleValue = TemplateEngine.evaluate(template, sampleData, {
+      emptyValueBehavior: 'skip',
+      separatorHandling: 'smart',
+      whitespaceHandling: 'normalize'
+    });
+    
+    state.updateUnifiedField(id, { template, dependencies, sampleValue });
   },
   
   validateCompositeTemplate: (template) => {
@@ -367,9 +425,21 @@ export const useFieldStore = create<FieldState>()(
   },
   
   getAvailableFieldKeys: () => {
-    return get().unifiedFields
+    const fields: string[] = [];
+    get().unifiedFields
       .filter(f => f.type !== 'composite-text')
-      .map(f => f.key);
+      .forEach(f => {
+        if (f.variant === 'options' && f.optionMappings) {
+          // For options fields, add each option key instead of the field key
+          f.optionMappings.forEach(mapping => {
+            fields.push(`${f.key}.${mapping.key}`);
+          });
+        } else {
+          // For regular fields, add the field key
+          fields.push(f.key);
+        }
+      });
+    return fields;
   },
   
   // Persistence operations
