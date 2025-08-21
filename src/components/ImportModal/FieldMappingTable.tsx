@@ -656,8 +656,8 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
                   </div>
                 </TableHead>
                 <TableHead className="w-16 text-center">Include</TableHead>
-                <TableHead className="w-48">Data Key</TableHead>
-                <TableHead className="w-48 min-w-[12rem] max-w-[12rem]">Field Type</TableHead>
+                <TableHead className="min-w-[200px]">Data Key</TableHead>
+                <TableHead className="w-36">Field Type</TableHead>
                 <TableHead className="w-32 text-center">Locations Needed</TableHead>
                 <TableHead className="w-20 text-center">Page</TableHead>
               </TableRow>
@@ -709,9 +709,10 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
                         className="h-8 -ml-[1px] pl-0 pr-2 font-mono text-sm bg-transparent border-0 border-b border-dashed border-muted-foreground/30 hover:border-solid hover:border-muted-foreground hover:bg-muted/30 focus:border focus:rounded-md focus:border-primary focus:bg-background focus:pl-2 transition-all"
                         placeholder="data.key"
                         disabled={!mapping.enabled}
+                        title={mapping.key}
                       />
                     </TableCell>
-                    <TableCell className="w-48 min-w-[12rem] max-w-[12rem]">
+                    <TableCell className="w-36">
                       {renderTypeConfig(mapping, originalIndex)}
                     </TableCell>
                     <TableCell className="text-center">
