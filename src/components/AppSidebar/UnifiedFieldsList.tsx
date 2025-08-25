@@ -14,7 +14,8 @@ import {
   Braces,
   Lock,
   LockOpen,
-  Database
+  Database,
+  GitBranch
 } from 'lucide-react';
 import {
   Collapsible,
@@ -41,11 +42,16 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
   const { unifiedFields, totalPages, pdfUrl, toggleUnifiedFieldLock, selectUnifiedField, deselectUnifiedField, setCurrentPage, currentPage } = useFieldStore();
   const enabledFields = unifiedFields.filter(f => f.enabled);
   
+  // Separate data fields (no position) from placed fields (with position)
+  const dataFields = enabledFields.filter(f => !f.position);
+  const placedFields = enabledFields.filter(f => f.position);
+  
   // State for managing collapsed pages - start with all expanded
   const [collapsedPages, setCollapsedPages] = useState<Set<number>>(new Set());
+  const [dataFieldsCollapsed, setDataFieldsCollapsed] = useState(false);
 
-  // Group fields by page number
-  const fieldsByPage = enabledFields.reduce((acc, field) => {
+  // Group placed fields by page number
+  const fieldsByPage = placedFields.reduce((acc, field) => {
     if (!acc[field.page]) {
       acc[field.page] = [];
     }
@@ -62,6 +68,9 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
 
   // Get icon for field type/variant
   const getFieldIcon = (field: UnifiedField) => {
+    // For conditional fields
+    if (field.type === 'conditional') return GitBranch;
+    
     // For data-only fields (no position)
     if (!field.position) return Database;
     
@@ -121,7 +130,65 @@ export function UnifiedFieldsList({ onFieldClick }: UnifiedFieldsListProps) {
       
       <SidebarGroupContent>
         {(enabledFields.length > 0 || totalPages > 0 || pdfUrl) ? (
-          <div className="space-y-1">
+          <div className="space-y-2">
+            {/* Data Fields Section */}
+            {dataFields.length > 0 && (
+              <Collapsible
+                open={!dataFieldsCollapsed}
+                onOpenChange={() => setDataFieldsCollapsed(!dataFieldsCollapsed)}
+              >
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between w-full px-2 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      {dataFieldsCollapsed ? (
+                        <ChevronRight className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      <Database className="h-3 w-3 text-blue-600" />
+                      <span className="text-xs font-medium text-blue-900">
+                        Data Fields (Invisible)
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-100">
+                      {dataFields.length}
+                    </Badge>
+                  </div>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <SidebarMenu>
+                    {dataFields.map((field) => {
+                      return (
+                        <SidebarMenuItem key={field.id}>
+                          <SidebarMenuButton
+                            onClick={() => handleFieldClick(field.id)}
+                            className={cn(
+                              "flex items-center gap-2 w-full text-xs py-1.5 px-2",
+                              "hover:bg-accent hover:text-accent-foreground",
+                              "data-[state=selected]:bg-accent data-[state=selected]:text-accent-foreground"
+                            )}
+                          >
+                            <Database className="h-3 w-3 flex-shrink-0 text-blue-600" />
+                            <span className="truncate flex-1 text-left">
+                              {field.key}
+                            </span>
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                              data
+                            </Badge>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            
+            {/* Placed Fields Section - Separator if we have data fields */}
+            {dataFields.length > 0 && placedFields.length > 0 && (
+              <div className="text-[10px] text-muted-foreground px-2 py-1">Placed Fields</div>
+            )}
             {sortedPages.map((pageNum) => {
               const pageFields = fieldsByPage[pageNum] || [];
               const isCollapsed = collapsedPages.has(pageNum);

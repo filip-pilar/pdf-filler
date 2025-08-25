@@ -4,7 +4,8 @@ export type FieldType =
   | 'radio-group'
   | 'image'
   | 'signature'
-  | 'composite-text';
+  | 'composite-text'
+  | 'conditional';
 
 export interface Field {
   type: FieldType;

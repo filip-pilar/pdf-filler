@@ -59,7 +59,7 @@ export function ImportConfigPage() {
       const fieldsToQueue: any[] = [];
       
       // Generate unique IDs for fields
-      const generateId = () => `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const generateId = () => `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       
       mappedFields.forEach(mapping => {
         // Handle auto-flattening for objects

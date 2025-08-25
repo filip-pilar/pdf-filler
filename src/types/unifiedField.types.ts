@@ -195,7 +195,77 @@ export interface UnifiedField {
    * Default: false for backward compatibility
    */
   locked?: boolean;
+  
+  /**
+   * Conditional logic configuration for conditional fields
+   * Defines if-else-if chains to determine what text to render based on other field values
+   */
+  conditionalBranches?: SimplifiedConditionalBranch[];
+  
+  /**
+   * Default value for conditional fields when no conditions match
+   * Optional - if not provided, nothing is rendered when no conditions match
+   */
+  conditionalDefaultValue?: string;
+  
+  /**
+   * Render type for conditional fields - determines how the evaluated value is displayed
+   * 'text': Display the value as text (default)
+   * 'checkbox': Display as a checkmark when value is truthy
+   */
+  conditionalRenderAs?: 'text' | 'checkbox';
 }
+
+/**
+ * Simplified operators for conditional comparisons
+ */
+export type SimplifiedConditionalOperator = 
+  | 'equals'
+  | 'not-equals'
+  | 'contains'
+  | 'exists'
+  | 'not-exists';
+
+/**
+ * A simplified condition in a conditional field
+ */
+export interface SimplifiedConditionalCondition {
+  /** The field key to evaluate */
+  field: string;
+  /** The comparison operator */
+  operator: SimplifiedConditionalOperator;
+  /** The value to compare against (not needed for exists/not-exists) */
+  value?: any;
+}
+
+/**
+ * A simplified branch in conditional logic (if-else-if chain)
+ */
+export interface SimplifiedConditionalBranch {
+  /** Unique ID for this branch (for React keys and reordering) */
+  id: string;
+  /** The condition to evaluate */
+  condition: SimplifiedConditionalCondition;
+  /** The text value to render when condition is true */
+  renderValue: string;
+}
+
+/**
+ * Result type for template evaluation - can be string, boolean, or null
+ */
+export type TemplateEvaluationResult = string | boolean | null;
+
+/**
+ * Result type for conditional field evaluation
+ */
+export type ConditionalFieldResult = string | boolean;
+
+// Temporary backward compatibility exports (will be removed after updating all references)
+export type ConditionalOperator = SimplifiedConditionalOperator;
+export type ConditionalCondition = SimplifiedConditionalCondition;
+export type ConditionalBranch = SimplifiedConditionalBranch;
+export type ConditionalAction = any; // Deprecated
+export type ConditionalActionType = any; // Deprecated
 
 /**
  * Simplified export format for unified fields

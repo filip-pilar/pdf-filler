@@ -6,6 +6,7 @@ import { ClickToOpenFields } from './ClickToOpenFields';
 import { OptionsFieldDialog } from '@/components/OptionsFieldDialog/OptionsFieldDialog';
 import { FieldConfigDialog } from '@/components/FieldConfigDialog/FieldConfigDialog';
 import { CompositeFieldDialog } from '@/components/CompositeFieldDialog/CompositeFieldDialog';
+import { ConditionalFieldDialog } from '@/components/ConditionalFieldDialog/ConditionalFieldDialog';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import {
   Sidebar,
@@ -22,6 +23,8 @@ export function FieldToolbox() {
   const [unifiedFieldForConfig, setUnifiedFieldForConfig] = useState<UnifiedField | null>(null);
   const [showCompositeFieldDialog, setShowCompositeFieldDialog] = useState(false);
   const [editingCompositeField, setEditingCompositeField] = useState<UnifiedField | undefined>();
+  const [showConditionalDialog, setShowConditionalDialog] = useState(false);
+  const [editingConditionalField, setEditingConditionalField] = useState<UnifiedField | null>(null);
 
   const handleAddOptionsField = () => {
     setEditingOptionsFieldId(undefined);
@@ -38,12 +41,49 @@ export function FieldToolbox() {
         // Open composite field dialog for composite fields
         setEditingCompositeField(field);
         setShowCompositeFieldDialog(true);
+      } else if (field.type === 'conditional') {
+        // Open conditional field dialog for conditional fields
+        setEditingConditionalField(field);
+        setShowConditionalDialog(true);
       } else {
         // Open field config dialog for regular fields
         setUnifiedFieldForConfig(field);
         setShowUnifiedFieldConfig(true);
       }
     }
+  };
+  
+  const handleConditionalSave = (fieldData: Partial<UnifiedField>) => {
+    const { updateUnifiedField, addUnifiedField } = useFieldStore.getState();
+    
+    if (editingConditionalField) {
+      // Update existing field
+      updateUnifiedField(editingConditionalField.id, fieldData);
+    } else {
+      // Create new field
+      const fieldId = `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const newField: UnifiedField = {
+        id: fieldId,
+        key: fieldData.key || 'conditional_field',
+        type: 'conditional',
+        variant: 'single',
+        page: fieldData.page || 1,
+        position: fieldData.position,
+        size: fieldData.size,
+        enabled: true,
+        structure: 'simple',
+        placementCount: 0,
+        conditionalBranches: fieldData.conditionalBranches || [],
+        conditionalDefaultValue: fieldData.conditionalDefaultValue,
+        conditionalRenderAs: fieldData.conditionalRenderAs || 'text',
+        properties: fieldData.properties,
+        positionVersion: 'top-edge',
+      };
+      addUnifiedField(newField);
+    }
+    
+    setShowConditionalDialog(false);
+    setEditingConditionalField(null);
   };
 
   return (
@@ -96,6 +136,16 @@ export function FieldToolbox() {
           setEditingCompositeField(undefined);
         }}
         editingField={editingCompositeField}
+      />
+      
+      <ConditionalFieldDialog
+        open={showConditionalDialog}
+        onOpenChange={(open) => {
+          setShowConditionalDialog(open);
+          if (!open) setEditingConditionalField(null);
+        }}
+        field={editingConditionalField}
+        onSave={handleConditionalSave}
       />
     </>
   );

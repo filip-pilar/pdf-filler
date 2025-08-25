@@ -175,7 +175,7 @@ export const useFieldStore = create<FieldState>()(
   
   // Unified field operations
   addUnifiedField: (fieldData) => {
-    const id = `unified_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `unified_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     const fieldType = fieldData.type || 'text';
     const existingFields = get().unifiedFields;
     
@@ -229,7 +229,7 @@ export const useFieldStore = create<FieldState>()(
       
       // 3. Apply defaults for missing values
       page: fieldData.page ?? 1,
-      position: fieldData.position ?? { x: 100, y: 100 },
+      position: fieldData.position, // Don't add default position - undefined means data-only field
       size: fieldData.size ?? getDefaultFieldSize(fieldType),
       variant: fieldData.variant ?? 'single',
       structure: fieldData.structure ?? 'simple',

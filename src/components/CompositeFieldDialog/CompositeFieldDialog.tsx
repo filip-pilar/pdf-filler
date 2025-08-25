@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useFieldStore } from '@/store/fieldStore';
 import { TemplateEngine } from '@/utils/templateEngine';
 import type { UnifiedField } from '@/types/unifiedField.types';
-import { InfoIcon, AlertCircle } from 'lucide-react';
+import { InfoIcon, AlertCircle, Plus } from 'lucide-react';
 
 interface CompositeFieldDialogProps {
   isOpen: boolean;
@@ -32,7 +32,9 @@ export function CompositeFieldDialog({
     createCompositeField,
     updateCompositeTemplate,
     currentPage,
-    unifiedFields // Subscribe to fields changes
+    unifiedFields, // Subscribe to fields changes
+    addUnifiedField,
+    getUnifiedFieldByKey
   } = useFieldStore();
   
   const [fieldKey, setFieldKey] = useState('');
@@ -42,6 +44,8 @@ export function CompositeFieldDialog({
   const [sampleData, setSampleData] = useState<string>('{}');
   const [showFieldBreakdown] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+  const [showQuickCreateField, setShowQuickCreateField] = useState(false);
+  const [quickFieldKey, setQuickFieldKey] = useState('');
   const templateTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Reset form when dialog opens/closes or editingField changes
@@ -201,6 +205,42 @@ export function CompositeFieldDialog({
     return value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
   };
   
+  const handleQuickCreateField = () => {
+    const cleanedKey = cleanFieldKey(quickFieldKey);
+    if (!cleanedKey) return;
+    
+    // Check if field already exists
+    if (getUnifiedFieldByKey(cleanedKey)) {
+      alert(`Field "${cleanedKey}" already exists`);
+      return;
+    }
+    
+    // Create data-only field (no position)
+    addUnifiedField({
+      key: cleanedKey,
+      type: 'text',
+      variant: 'single',
+      structure: 'simple',
+      page: currentPage || 1,
+      enabled: true,
+      placementCount: 0,
+      sampleValue: `Sample ${cleanedKey}`,
+      properties: {
+        fontSize: 12
+      }
+    });
+    
+    // Add to template
+    const currentTemplate = template;
+    const newTemplate = currentTemplate ? `${currentTemplate} {${cleanedKey}}` : `{${cleanedKey}}`;
+    setTemplate(newTemplate);
+    
+    // Reset quick create form
+    setQuickFieldKey('');
+    setShowQuickCreateField(false);
+    templateTextareaRef.current?.focus();
+  };
+  
   const handleClose = () => {
     // Auto-save if editing existing field and template has changed
     if (editingField && template && template !== editingField.template) {
@@ -251,6 +291,81 @@ export function CompositeFieldDialog({
             <p className="text-xs text-muted-foreground">
               Use {'{fieldKey}'} to reference other fields. The template will be evaluated with actual data values.
             </p>
+          </div>
+          
+          {/* Available Data Fields */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Available Fields</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setShowQuickCreateField(!showQuickCreateField)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Quick Add
+              </Button>
+            </div>
+            
+            {/* Quick Create Field Form */}
+            {showQuickCreateField && (
+              <div className="flex gap-2 p-2 border rounded-md bg-blue-50">
+                <Input
+                  placeholder="New field key (e.g., firstName)"
+                  value={quickFieldKey}
+                  onChange={(e) => setQuickFieldKey(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickCreateField();
+                    }
+                    if (e.key === 'Escape') {
+                      setShowQuickCreateField(false);
+                      setQuickFieldKey('');
+                    }
+                  }}
+                  className="flex-1 h-8 text-sm"
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={handleQuickCreateField}
+                  disabled={!quickFieldKey.trim()}
+                >
+                  Create & Add
+                </Button>
+              </div>
+            )}
+            
+            <div className="p-2 border rounded-md bg-muted/30">
+              {availableFields.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {availableFields.map(field => (
+                    <Button
+                      key={field}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs font-mono"
+                      onClick={() => {
+                        const currentTemplate = template;
+                        const newTemplate = currentTemplate ? `${currentTemplate} {${field}}` : `{${field}}`;
+                        setTemplate(newTemplate);
+                        templateTextareaRef.current?.focus();
+                      }}
+                      title="Click to add to template"
+                    >
+                      {field}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No fields available yet. Use "Quick Add" above or create data fields using the "Data Field (Invisible)" button.
+                </p>
+              )}
+            </div>
           </div>
           
           {/* Template Suggestions */}

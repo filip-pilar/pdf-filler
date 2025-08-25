@@ -141,6 +141,18 @@ export function DraggableUnifiedField({
       return optionKey;
     }
     
+    if (field.type === 'conditional') {
+      // Show a preview of the conditional logic
+      if (field.conditionalRenderAs === 'checkbox') {
+        return '[✓/✗]';  // Shows checkbox preview
+      }
+      if (field.conditionalBranches && field.conditionalBranches.length > 0) {
+        const firstBranch = field.conditionalBranches[0];
+        return `[If ${firstBranch.condition.field}...]`;
+      }
+      return '[Conditional]';
+    }
+    
     if (field.type === 'composite-text') {
       // Show evaluated preview for composite fields if possible
       if (field.sampleValue) {
@@ -184,6 +196,10 @@ export function DraggableUnifiedField({
     switch (field.type) {
       case 'text': return { width: 120, height: 32 };
       case 'composite-text': return { width: 200, height: 32 };
+      case 'conditional': 
+        return field.conditionalRenderAs === 'checkbox' 
+          ? { width: 20, height: 20 }  // Checkbox size for conditional checkbox
+          : { width: 150, height: 32 }; // Text size for conditional text
       case 'checkbox': return { width: 20, height: 20 };
       case 'image': return { width: 100, height: 100 };
       case 'signature': return { width: 200, height: 60 };

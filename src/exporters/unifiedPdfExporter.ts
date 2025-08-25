@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PDFDocument, rgb, StandardFonts, PDFFont } from 'pdf-lib';
-import type { UnifiedField } from '@/types/unifiedField.types';
+import type { UnifiedField, SimplifiedConditionalOperator, ConditionalFieldResult } from '@/types/unifiedField.types';
 import { TemplateEngine } from '@/utils/templateEngine';
 
 interface ExportOptions {
@@ -64,9 +64,13 @@ export async function exportUnifiedPDF(
       // Determine the value to render
       let value: any;
       
+      // Handle conditional fields - evaluate to get the text to display
+      if (field.type === 'conditional') {
+        value = evaluateConditionalField(field, fieldValues);
+      }
       // Handle composite fields by evaluating their template
-      if (field.type === 'composite-text' && field.template) {
-        value = TemplateEngine.evaluate(field.template, fieldValues, field.compositeFormatting);
+      else if (field.type === 'composite-text' && field.template) {
+        value = TemplateEngine.evaluateWithContext(field.template, fieldValues, field.compositeFormatting);
       } else {
         value = fieldValues[field.key] ?? field.properties?.defaultValue ?? field.sampleValue;
       }
@@ -85,6 +89,132 @@ export async function exportUnifiedPDF(
   }
   
   return await pdfDoc.save();
+}
+
+/**
+ * Evaluate a simplified conditional operator
+ */
+function evaluateCondition(
+  operator: SimplifiedConditionalOperator,
+  fieldValue: any,
+  compareValue: any
+): boolean {
+  switch (operator) {
+    case 'equals':
+      // Use == for loose equality (handles type coercion)
+      return fieldValue == compareValue;
+    case 'not-equals':
+      return fieldValue != compareValue;
+    case 'contains':
+      return String(fieldValue).toLowerCase().includes(String(compareValue).toLowerCase());
+    case 'exists':
+      return fieldValue != null && fieldValue !== '';
+    case 'not-exists':
+      return fieldValue == null || fieldValue === '';
+    default:
+      return false;
+  }
+}
+
+/**
+ * Evaluate conditional field and determine which text value to render
+ */
+function evaluateConditionalField(
+  field: UnifiedField,
+  fieldValues: Record<string, any>
+): ConditionalFieldResult {
+  let textValue = '';
+  
+  if (!field.conditionalBranches || field.conditionalBranches.length === 0) {
+    textValue = field.conditionalDefaultValue || '';
+  } else {
+    // Evaluate each branch in order
+    for (const branch of field.conditionalBranches) {
+      const fieldValue = fieldValues[branch.condition.field];
+      const matches = evaluateCondition(
+        branch.condition.operator,
+        fieldValue,
+        branch.condition.value
+      );
+      
+      if (matches) {
+        textValue = branch.renderValue || '';
+        break;
+      }
+    }
+    
+    // If no branches matched, use default value
+    if (!textValue && field.conditionalDefaultValue) {
+      textValue = field.conditionalDefaultValue;
+    }
+  }
+  
+  // Check if it's a simple field reference pattern like {fieldName}
+  const simpleFieldRefMatch = textValue.match(/^{([^}]+)}$/);
+  
+  if (simpleFieldRefMatch) {
+    // Direct field reference - get the raw value (could be boolean, string, etc.)
+    const fieldKey = simpleFieldRefMatch[1].trim();
+    const rawValue = fieldValues[fieldKey];
+    
+    // For checkbox mode, evaluate the raw value
+    if (field.conditionalRenderAs === 'checkbox') {
+      if (typeof rawValue === 'boolean') {
+        return rawValue;
+      }
+      // Convert string values to boolean
+      return ['true', 'checked', 'yes', '1'].includes(String(rawValue).toLowerCase());
+    }
+    
+    // For text mode, convert to string
+    return rawValue != null ? String(rawValue) : '';
+  }
+  
+  // Complex template - process with TemplateEngine (with circular reference detection)
+  if (textValue.includes('{') && textValue.includes('}')) {
+    textValue = TemplateEngine.evaluateWithContext(textValue, fieldValues);
+  }
+  
+  // Handle empty results - if template evaluated to empty, use default or empty string
+  if (!textValue && field.conditionalDefaultValue) {
+    textValue = field.conditionalDefaultValue;
+    // Re-evaluate if default is also a template
+    if (textValue.includes('{') && textValue.includes('}')) {
+      textValue = TemplateEngine.evaluateWithContext(textValue, fieldValues);
+    }
+  }
+  
+  // If renderAs is checkbox and we have a processed string value
+  if (field.conditionalRenderAs === 'checkbox') {
+    // Strict matching - only exact values (trimmed) count as checked
+    const trimmedValue = String(textValue).trim().toLowerCase();
+    
+    // Support escape syntax: \true becomes literal "true" text
+    if (textValue.startsWith('\\')) {
+      // Escaped value - treat as literal text, not checkbox
+      return false;
+    }
+    
+    // Only these exact, complete values trigger checkbox checked state
+    const checkboxTrueValues = ['true', 'checked', 'yes', '1'];
+    const checkboxFalseValues = ['false', 'unchecked', 'no', '0', ''];
+    
+    if (checkboxTrueValues.includes(trimmedValue)) {
+      return true;
+    }
+    
+    // Explicitly handle false values
+    if (checkboxFalseValues.includes(trimmedValue)) {
+      return false;
+    }
+    
+    // Any other value (like "Answer: true") is treated as unchecked
+    // This prevents accidental matches on partial strings
+    console.warn(`Ambiguous checkbox value "${textValue}" treated as unchecked. Use exact values: ${checkboxTrueValues.join(', ')}`);
+    return false;
+  }
+  
+  return textValue;
 }
 
 async function renderOptionsField(
@@ -268,6 +398,53 @@ async function renderSingleField(
         } catch (e) {
           console.error(`Failed to embed image for field "${field.key}":`, e);
         }
+      }
+      break;
+      
+    case 'conditional':
+      // Handle conditional fields that render as checkbox
+      if (field.conditionalRenderAs === 'checkbox' && value === true) {
+        const checkSize = field.properties?.checkboxSize || field.size?.width || 20;
+        const boxX = field.position.x;
+        const boxY = position.y;
+        
+        // Draw checkmark
+        page.drawText('✓', {
+          x: boxX,
+          y: boxY,
+          size: checkSize,
+          font: font,
+          color: getColor(field.properties?.textColor)
+        });
+      } else if (field.conditionalRenderAs !== 'checkbox' && value) {
+        // Render as text (fall through to text case)
+        const text = String(value);
+        const fontSize = field.properties?.fontSize || 10;
+        const textAlign = field.properties?.textAlign || 'left';
+        const padding = field.properties?.padding || { left: 2, right: 2, top: 2, bottom: 2 };
+        
+        // Calculate text position based on alignment
+        let textX = field.position.x + (padding.left || 2);
+        
+        if (textAlign === 'center') {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          textX = field.position.x + ((field.size?.width || 100) - textWidth) / 2;
+        } else if (textAlign === 'right') {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          textX = field.position.x + (field.size?.width || 100) - textWidth - (padding.right || 2);
+        }
+        
+        // Center text vertically in field
+        const fieldHeight = field.size?.height || 30;
+        const textY = position.y + (fieldHeight - fontSize) / 2;
+        
+        page.drawText(text, {
+          x: textX,
+          y: textY,
+          size: fontSize,
+          font: font,
+          color: getColor(field.properties?.textColor),
+        });
       }
       break;
       

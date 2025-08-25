@@ -119,10 +119,11 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            Create Data-Only Field
+            Create Data Field (Invisible)
           </DialogTitle>
           <DialogDescription>
-            Create fields that exist in the data model but don't appear on the PDF
+            Data fields are invisible containers that hold values for use in composite or conditional fields. 
+            They won't appear on the PDF but can be referenced by other fields.
           </DialogDescription>
         </DialogHeader>
         
@@ -130,8 +131,9 @@ export function DataFieldDialog({ isOpen, onClose }: DataFieldDialogProps) {
           <Alert>
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
-              Data-only fields don't appear on the PDF but can be used in composite fields 
-              and are included in the exported API.
+              <strong>Example:</strong> Create data fields for "firstName" and "lastName", 
+              then combine them in a composite field using template {`{firstName} {lastName}`}
+              that you place on the PDF.
             </AlertDescription>
           </Alert>
           

@@ -14,10 +14,17 @@ export interface CompositeFormatting {
   whitespaceHandling: 'normalize' | 'preserve';
 }
 
+export interface EvaluationContext {
+  visitedFields: Set<string>;
+  depth: number;
+  maxDepth: number;
+}
+
 export class TemplateEngine {
   /**
    * Evaluates a template string with provided data
    * Supports {fieldName} and nested paths like {user.firstName}
+   * Legacy method - use evaluateWithContext for circular reference detection
    */
   static evaluate(
     template: string, 
@@ -45,6 +52,81 @@ export class TemplateEngine {
         .replace(/\s*,\s*$/, '')    // Trailing comma
         .replace(/\s*\.\s*\./g, '.') // Multiple periods
         .replace(/\s+/g, ' ')        // Multiple spaces
+        .trim();
+    }
+    
+    if (formatting?.whitespaceHandling === 'normalize') {
+      result = result.replace(/\s+/g, ' ').trim();
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Evaluates a template with circular reference detection
+   * This is the safe version that prevents infinite loops
+   */
+  static evaluateWithContext(
+    template: string,
+    data: Record<string, unknown>,
+    formatting?: CompositeFormatting,
+    context?: EvaluationContext
+  ): string {
+    // Initialize context if not provided
+    const ctx = context || {
+      visitedFields: new Set<string>(),
+      depth: 0,
+      maxDepth: 10
+    };
+    
+    // Check depth limit
+    if (ctx.depth >= ctx.maxDepth) {
+      console.warn(`Template evaluation max depth (${ctx.maxDepth}) exceeded`);
+      return '[Max Depth Exceeded]';
+    }
+    
+    let result = template.replace(/{([^}]+)}/g, (_, fieldPath) => {
+      // Check for circular reference
+      if (ctx.visitedFields.has(fieldPath)) {
+        console.warn(`Circular reference detected: ${fieldPath}`);
+        return '[Circular Reference]';
+      }
+      
+      // Get the raw value
+      const value = this.getNestedValue(data, fieldPath);
+      
+      // If the value is a string that might contain templates, evaluate it recursively
+      if (typeof value === 'string' && value.includes('{') && value.includes('}')) {
+        // Create new context for recursive evaluation
+        const newContext: EvaluationContext = {
+          visitedFields: new Set(ctx.visitedFields).add(fieldPath),
+          depth: ctx.depth + 1,
+          maxDepth: ctx.maxDepth
+        };
+        
+        // Recursively evaluate
+        return this.evaluateWithContext(value, data, formatting, newContext);
+      }
+      
+      // Handle empty values
+      if (value == null || value === '') {
+        if (formatting?.emptyValueBehavior === 'placeholder') {
+          return `[${fieldPath}]`;
+        }
+        return formatting?.emptyValueBehavior === 'skip' ? '' : '';
+      }
+      
+      return String(value).trim();
+    });
+    
+    // Apply formatting
+    if (formatting?.separatorHandling === 'smart') {
+      result = result
+        .replace(/,\s*,/g, ',')
+        .replace(/^\s*,\s*/, '')
+        .replace(/\s*,\s*$/, '')
+        .replace(/\s*\.\s*\./g, '.')
+        .replace(/\s+/g, ' ')
         .trim();
     }
     
