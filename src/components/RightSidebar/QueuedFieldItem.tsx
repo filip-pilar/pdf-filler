@@ -3,6 +3,7 @@ import { useDrag } from 'react-dnd';
 import { Type, CheckSquare, Image, PenTool, List, Braces, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFieldStore } from '@/store/fieldStore';
 import type { UnifiedField } from '@/types/unifiedField.types';
 import { cn } from '@/lib/utils';
@@ -78,7 +79,16 @@ export function QueuedFieldItem({ field }: QueuedFieldItemProps) {
       
       {/* Field info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-mono truncate">{field.key}</p>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-sm font-mono truncate cursor-help">{field.key}</p>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-md">
+              <p className="font-mono text-xs break-all">{field.key}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="flex items-center gap-1 mt-0.5">
           <Badge variant="outline" className="text-[10px] px-1 py-0">
             {getFieldTypeLabel()}

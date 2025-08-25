@@ -111,28 +111,36 @@ export function CompositeFieldDialog({
     
     // Generate sample data for ALL available fields, not just dependencies
     availableFields.forEach(fieldKey => {
-      // Check if this is an option field reference (fieldKey.optionKey)
-      if (fieldKey.includes('.')) {
-        const [baseFieldKey, optionKey] = fieldKey.split('.');
-        const field = unifiedFields.find(f => f.key === baseFieldKey);
-        
-        if (field?.variant === 'options') {
-          // For options fields, use the option key as the value
-          sample[fieldKey] = optionKey;
-        } else {
-          // For nested regular fields
-          if (!sample[baseFieldKey]) sample[baseFieldKey] = {} as Record<string, string>;
-          (sample[baseFieldKey] as Record<string, string>)[optionKey] = field?.sampleValue || `Sample ${optionKey}`;
-        }
-      } else {
-        const field = unifiedFields.find(f => f.key === fieldKey);
-        const fieldValue = field?.sampleValue;
+      // First check if this field actually exists as-is (with dots in the key)
+      const field = unifiedFields.find(f => f.key === fieldKey);
+      
+      if (field) {
+        // This is a regular field (even if it has dots in the key like personal_data.firstName)
+        const fieldValue = field.sampleValue;
         // Handle different types of sample values
         if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
           sample[fieldKey] = String(fieldValue);
         } else {
           sample[fieldKey] = `Sample ${fieldKey}`;
         }
+      } else if (fieldKey.includes('.')) {
+        // This might be an option field reference (fieldKey.optionKey)
+        // Try to find a field where the first part matches
+        const lastDotIndex = fieldKey.lastIndexOf('.');
+        const baseFieldKey = fieldKey.substring(0, lastDotIndex);
+        const optionKey = fieldKey.substring(lastDotIndex + 1);
+        const baseField = unifiedFields.find(f => f.key === baseFieldKey);
+        
+        if (baseField?.variant === 'options') {
+          // For options fields, use the option key as the value
+          sample[fieldKey] = optionKey;
+        } else {
+          // Field not found, use a placeholder
+          sample[fieldKey] = `Sample ${fieldKey}`;
+        }
+      } else {
+        // Field not found, use a placeholder
+        sample[fieldKey] = `Sample ${fieldKey}`;
       }
     });
     setSampleData(JSON.stringify(sample, null, 2));

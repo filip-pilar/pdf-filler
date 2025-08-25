@@ -32,7 +32,13 @@ export class TemplateEngine {
     formatting?: CompositeFormatting
   ): string {
     let result = template.replace(/{([^}]+)}/g, (_, fieldPath) => {
-      const value = this.getNestedValue(data, fieldPath);
+      // First try direct lookup (for keys with dots like personal_data.firstName)
+      let value = data[fieldPath];
+      
+      // If not found directly, try nested lookup for backward compatibility
+      if (value === undefined) {
+        value = this.getNestedValue(data, fieldPath);
+      }
       
       if (value == null || value === '') {
         if (formatting?.emptyValueBehavior === 'placeholder') {
@@ -92,8 +98,13 @@ export class TemplateEngine {
         return '[Circular Reference]';
       }
       
-      // Get the raw value
-      const value = this.getNestedValue(data, fieldPath);
+      // First try direct lookup (for keys with dots like personal_data.firstName)
+      let value = data[fieldPath];
+      
+      // If not found directly, try nested lookup for backward compatibility
+      if (value === undefined) {
+        value = this.getNestedValue(data, fieldPath);
+      }
       
       // If the value is a string that might contain templates, evaluate it recursively
       if (typeof value === 'string' && value.includes('{') && value.includes('}')) {
@@ -166,8 +177,9 @@ export class TemplateEngine {
     // Extract and validate dependencies
     const dependencies = this.extractDependencies(template);
     const missingFields = dependencies.filter(dep => {
-      const fieldName = dep.split('.')[0]; // Handle nested paths
-      return !availableFields.includes(fieldName) && !availableFields.includes(dep);
+      // Check if the full dependency exists as a field key
+      // (field keys can now contain dots like personal_data.firstName)
+      return !availableFields.includes(dep);
     });
     
     missingFields.forEach(field => {

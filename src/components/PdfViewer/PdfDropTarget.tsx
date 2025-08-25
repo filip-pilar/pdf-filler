@@ -101,10 +101,8 @@ export function PdfDropTarget({
       // Handle drop based on type
       if (isQueuedField) {
         // Move field from queue to canvas
-        // Only place if the field is on the current page
-        if (item.field.page === currentPage) {
-          moveFromQueueToCanvas(item.field.id, boundedPosition);
-        }
+        // Update the field's page to the current page when dropping
+        moveFromQueueToCanvas(item.field.id, boundedPosition, currentPage);
       } else {
         // Create new field from sidebar
         onFieldDrop(item.fieldType, boundedPosition, currentPage);

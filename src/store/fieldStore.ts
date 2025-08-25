@@ -41,7 +41,7 @@ interface FieldState {
   addToQueue: (fields: UnifiedField[]) => void;
   removeFromQueue: (fieldId: string) => void;
   clearQueue: () => void;
-  moveFromQueueToCanvas: (fieldId: string, position: { x: number; y: number }) => void;
+  moveFromQueueToCanvas: (fieldId: string, position: { x: number; y: number }, page?: number) => void;
   setRightSidebarOpen: (open: boolean) => void;
   
   // Unified field operations
@@ -157,12 +157,16 @@ export const useFieldStore = create<FieldState>()(
     set({ queuedFields: [] });
   },
   
-  moveFromQueueToCanvas: (fieldId, position) => {
+  moveFromQueueToCanvas: (fieldId, position, page) => {
     const field = get().queuedFields.find(f => f.id === fieldId);
     if (!field) return;
     
-    // Add field to canvas with the new position
-    const updatedField = { ...field, position };
+    // Add field to canvas with the new position and optionally update the page
+    const updatedField = { 
+      ...field, 
+      position,
+      ...(page !== undefined && { page })
+    };
     get().addUnifiedField(updatedField);
     
     // Remove from queue
