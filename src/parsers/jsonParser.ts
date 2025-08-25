@@ -1,7 +1,15 @@
 import type { Field, FieldType } from '@/types/field.types';
 
-// Sanitize key to remove spaces and special characters
-function sanitizeFieldKey(key: string): string {
+// Sanitize key to preserve dots for nested paths but clean up other characters
+function sanitizeFieldKey(key: string, preserveDots = false): string {
+  if (preserveDots) {
+    // Keep dots for nested paths, but clean up other characters
+    return key
+      .replace(/\s+/g, '_')  // Replace spaces with underscores
+      .replace(/[^a-zA-Z0-9_.]/g, '');  // Keep alphanumeric, underscore, and dots
+  }
+  
+  // Legacy behavior for backwards compatibility
   return key
     .toLowerCase()
     .replace(/\s+/g, '_')  // Replace spaces with underscores
@@ -137,11 +145,11 @@ export function generateFieldsFromJSON(jsonString: string, startPosition = { x: 
         .trim()
         .replace(/\b\w/g, l => l.toUpperCase());
       
-      // Generate a valid key from the path
+      // Generate a key that preserves the nested path structure
+      // Remove array brackets but keep dots for nested access
       const key = sanitizeFieldKey(
-        field.path
-          .replace(/\./g, '_')
-          .replace(/\[\]/g, '_array')
+        field.path.replace(/\[\]/g, ''),
+        true  // preserve dots for nested paths
       );
       
       fields.push({
