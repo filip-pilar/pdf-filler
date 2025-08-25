@@ -431,7 +431,7 @@ export const useFieldStore = create<FieldState>()(
   getAvailableFieldKeys: () => {
     const fields: string[] = [];
     get().unifiedFields
-      .filter(f => f.type !== 'composite-text')
+      .filter(f => f.type !== 'composite-text' && f.key) // Only include fields with keys
       .forEach(f => {
         if (f.variant === 'options' && f.optionMappings) {
           // For options fields, add each option key instead of the field key
