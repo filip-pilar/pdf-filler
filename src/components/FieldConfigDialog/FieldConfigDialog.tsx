@@ -53,14 +53,10 @@ export function FieldConfigDialog({
   const handleSave = useCallback(() => {
     if (!field) return;
     
-    // Clean the field key
-    const cleanedKey = fieldKey
-      .trim()
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .replace(/^-+/, '')
-      .replace(/-+$/, '');
+    // Clean the field key using the shared sanitizer that preserves dots
+    const cleanedKey = sanitizeFieldKey(fieldKey.trim());
     
-    if (!cleanedKey) {
+    if (!cleanedKey || !isValidFieldKey(cleanedKey)) {
       setFieldKeyError('Please enter a valid field key');
       return;
     }

@@ -251,9 +251,10 @@ export function OptionsFieldDialog({
     }
     
     // Sanitize the key - replace spaces with underscores and remove special characters
+    // Preserve dots for nested paths
     const cleaned = trimmed
       .replace(/\s+/g, '_')  // Replace spaces with underscores
-      .replace(/[^a-zA-Z0-9_-]/g, '')  // Remove all non-alphanumeric chars except _ and -
+      .replace(/[^a-zA-Z0-9_.-]/g, '')  // Remove all non-alphanumeric chars except _, -, and .
       .toLowerCase();  // Convert to lowercase for consistency
     
     if (!cleaned) {
@@ -893,7 +894,7 @@ export function OptionsFieldDialog({
                     Will be saved as: <span className="font-mono text-foreground">
                       {newOptionKey.trim()
                         .replace(/\s+/g, '_')
-                        .replace(/[^a-zA-Z0-9_-]/g, '')
+                        .replace(/[^a-zA-Z0-9_.-]/g, '')
                         .toLowerCase()}
                     </span>
                   </p>

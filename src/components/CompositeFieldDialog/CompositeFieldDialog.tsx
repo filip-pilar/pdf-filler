@@ -202,7 +202,8 @@ export function CompositeFieldDialog({
   
   const cleanFieldKey = (value: string) => {
     // Replace spaces with underscores and remove special characters
-    return value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+    // Preserve dots for nested paths
+    return value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
   };
   
   const handleQuickCreateField = () => {

@@ -1,25 +1,26 @@
 /**
  * Validates and sanitizes field keys
- * Keys must be valid identifiers: alphanumeric, underscore, hyphen only
+ * Keys must be valid identifiers: alphanumeric, underscore, hyphen, and dots for nested paths
  * No spaces or special characters allowed
  */
 
 export function sanitizeFieldKey(input: string): string {
-  // Remove all characters that aren't alphanumeric, underscore, or hyphen
+  // Remove all characters that aren't alphanumeric, underscore, hyphen, or dot
   // Replace spaces with underscores
+  // Preserve dots for nested paths (e.g., personal_data.firstName)
   return input
     .replace(/\s+/g, '_')  // Replace spaces with underscores
-    .replace(/[^a-zA-Z0-9_-]/g, '')  // Remove invalid characters
-    .replace(/^-+/, '')  // Remove leading hyphens
-    .replace(/^_+/, '')  // Remove leading underscores
-    .toLowerCase();  // Convert to lowercase for consistency
+    .replace(/[^a-zA-Z0-9_.-]/g, '')  // Remove invalid characters but keep dots
+    .replace(/^[-._]+/, '')  // Remove leading special chars
+    .replace(/[-._]+$/, '');  // Remove trailing special chars
 }
 
 export function isValidFieldKey(key: string): boolean {
   // Must start with a letter or underscore
-  // Can contain letters, numbers, underscores, and hyphens
+  // Can contain letters, numbers, underscores, hyphens, and dots
   // Cannot be empty
-  return /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(key);
+  // Dots are allowed for nested paths (e.g., personal_data.firstName)
+  return /^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(key);
 }
 
 export function generateFieldKey(type: string, existingKeys: string[]): string {
