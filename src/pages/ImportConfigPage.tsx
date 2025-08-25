@@ -25,7 +25,7 @@ export function ImportConfigPage() {
   const location = useLocation();
   const state = location.state as LocationState;
   
-  const { addToQueue, totalPages } = useFieldStore();
+  const { addToQueue, addUnifiedField, totalPages } = useFieldStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -62,6 +62,20 @@ export function ImportConfigPage() {
       const generateId = () => `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       
       mappedFields.forEach(mapping => {
+        // Handle data fields - create directly without position
+        if (mapping.type === 'data') {
+          addUnifiedField({
+            key: mapping.key,
+            type: 'text', // Data fields are always text internally
+            variant: 'single',
+            enabled: true,
+            structure: 'simple',
+            // No position - makes it data-only
+            sampleValue: state.fields.find((f: any) => f.key === mapping.key)?.sampleValue || `Sample ${mapping.key}`
+          });
+          return; // Skip adding to queue
+        }
+        
         // Handle auto-flattening for objects
         if (mapping.fieldVariant === 'text-multi' && mapping.options) {
           // Create separate fields for multi-placement
@@ -99,10 +113,22 @@ export function ImportConfigPage() {
         }
       });
       
+      // Count data fields
+      const dataFieldsCount = mappedFields.filter(f => f.type === 'data').length;
+      const queuedFieldsCount = fieldsToQueue.length;
+      
       // Add all fields to queue at once
       if (fieldsToQueue.length > 0) {
         addToQueue(fieldsToQueue);
-        toast.success(`Successfully added ${fieldsToQueue.length} fields to queue`);
+      }
+      
+      // Show appropriate success message
+      if (dataFieldsCount > 0 && queuedFieldsCount > 0) {
+        toast.success(`Added ${dataFieldsCount} data fields and ${queuedFieldsCount} fields to queue`);
+      } else if (dataFieldsCount > 0) {
+        toast.success(`Successfully created ${dataFieldsCount} data fields`);
+      } else if (queuedFieldsCount > 0) {
+        toast.success(`Successfully added ${queuedFieldsCount} fields to queue`);
       }
       
       // Navigate back to home after successful import

@@ -20,7 +20,8 @@ import {
   Search,
   Undo2,
   Redo2,
-  FileText
+  FileText,
+  Database
 } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -37,7 +38,7 @@ interface FieldMapping {
   id: string; // Stable identifier for React key
   key: string;
   displayName: string;
-  type: FieldType | 'logic';
+  type: FieldType | 'logic' | 'data';
   fieldVariant: FieldVariant;
   page: number;
   enabled: boolean;
@@ -457,7 +458,7 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
       return (
         <Select
           value={mapping.type}
-          onValueChange={(value: FieldType | 'logic') => updateMapping(index, { type: value })}
+          onValueChange={(value: FieldType | 'logic' | 'data') => updateMapping(index, { type: value })}
           disabled={!mapping.enabled}
         >
           <SelectTrigger className="h-8 w-full">
@@ -468,6 +469,12 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
             <SelectItem value="checkbox">Checkmark</SelectItem>
             <SelectItem value="image">Image (from URL)</SelectItem>
             <SelectItem value="signature">Signature (from URL)</SelectItem>
+            <SelectItem value="data">
+              <div className="flex items-center gap-2">
+                <Database className="h-3 w-3" />
+                <span>Data (Invisible)</span>
+              </div>
+            </SelectItem>
           </SelectContent>
         </Select>
       );
@@ -681,7 +688,7 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
                     return (
                       <TableRow 
                         key={mapping.id} 
-                        className={`${!mapping.enabled ? 'opacity-50' : ''} ${pageIndex % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                        className={`${!mapping.enabled ? 'opacity-50' : ''} ${mapping.type === 'data' ? 'bg-blue-50/30 dark:bg-blue-950/10' : pageIndex % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
                     <TableCell className="text-center">
                       <div className="flex justify-center">
                         <Checkbox
@@ -703,42 +710,55 @@ export function FieldMappingTable({ fields, totalPages, onConfirm }: FieldMappin
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Input
-                        value={mapping.key}
-                        onChange={(e) => updateMapping(originalIndex, { key: e.target.value })}
-                        className="h-8 -ml-[1px] pl-0 pr-2 font-mono text-sm bg-transparent border-0 border-b border-dashed border-muted-foreground/30 hover:border-solid hover:border-muted-foreground hover:bg-muted/30 focus:border focus:rounded-md focus:border-primary focus:bg-background focus:pl-2 transition-all"
-                        placeholder="data.key"
-                        disabled={!mapping.enabled}
-                        title={mapping.key}
-                      />
+                      <div className="flex items-center gap-1">
+                        {mapping.type === 'data' && (
+                          <Database className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                        )}
+                        <Input
+                          value={mapping.key}
+                          onChange={(e) => updateMapping(originalIndex, { key: e.target.value })}
+                          className="h-8 -ml-[1px] pl-0 pr-2 font-mono text-sm bg-transparent border-0 border-b border-dashed border-muted-foreground/30 hover:border-solid hover:border-muted-foreground hover:bg-muted/30 focus:border focus:rounded-md focus:border-primary focus:bg-background focus:pl-2 transition-all"
+                          placeholder="data.key"
+                          disabled={!mapping.enabled}
+                          title={mapping.key}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="w-36">
                       {renderTypeConfig(mapping, originalIndex)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={mapping.placementCount > 1 ? "secondary" : "outline"} className="font-mono">
-                        {mapping.placementCount || 1}
-                      </Badge>
+                      {mapping.type === 'data' ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : (
+                        <Badge variant={mapping.placementCount > 1 ? "secondary" : "outline"} className="font-mono">
+                          {mapping.placementCount || 1}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className="flex justify-center">
-                        <Select
-                          value={mapping.page.toString()}
-                          onValueChange={(value) => updateMapping(originalIndex, { page: parseInt(value) })}
-                          disabled={!mapping.enabled}
-                        >
-                          <SelectTrigger className="h-8 w-16">
-                            <SelectValue />
-                          </SelectTrigger>
+                      {mapping.type === 'data' ? (
+                        <span className="text-muted-foreground">N/A</span>
+                      ) : (
+                        <div className="flex justify-center">
+                          <Select
+                            value={mapping.page.toString()}
+                            onValueChange={(value) => updateMapping(originalIndex, { page: parseInt(value) })}
+                            disabled={!mapping.enabled}
+                          >
+                            <SelectTrigger className="h-8 w-16">
+                              <SelectValue />
+                            </SelectTrigger>
                         <SelectContent>
                           {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                             <SelectItem key={page} value={page.toString()}>
                               {page}
                             </SelectItem>
                           ))}
-                        </SelectContent>
-                        </Select>
-                      </div>
+                          </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </TableCell>
                       </TableRow>
                     );
